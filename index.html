@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Media, Internet &amp; AI Reader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: course reader — sticky sidebar grouped by unit (collapses to a numbered rail / phone drawer), one reading column of sessions */
+/* Palette: 98% white, 98% black and one light blue, each as a tonal scale. One typeface (Inter). */
+:root {
+  /* Neutral scale: 98% white (#fafafa) to 98% black (#050505) */
+  --n-0: #fafafa; --n-50: #f0f0f0; --n-100: #e3e3e3; --n-200: #c9c9c9; --n-300: #adadad; --n-400: #8a8a8a;
+  --n-500: #6b6b6b; --n-600: #4f4f4f; --n-700: #363636; --n-800: #222222; --n-900: #141414; --n-950: #050505;
+  /* Highlight scale: light blue (--b-300) with lighter and deeper steps */
+  --b-50: #f2f9ff; --b-100: #e1f1ff; --b-200: #c4e4ff; --b-300: #a3d4ff; --b-400: #74bbf7; --b-500: #4a9fe8;
+  --b-600: #2c80cc; --b-700: #1f64a3; --b-800: #184c7b; --b-900: #113656; --b-950: #0a2238;
+
+  /* Roles, light theme */
+  --bg: var(--n-0);
+  --surface: var(--n-0);
+  --fg: var(--n-950);
+  --muted: var(--n-500);
+  --line: var(--n-100);
+  --chip: var(--n-50);
+  --hl: var(--b-300);
+  --accent: var(--b-700);
+  --accent-soft: var(--b-50);
+
+  /* Table role chips keep their original colors */
+  --est-bg: #e7ecf7; --est-fg: #2b4c9b;
+  --neu-bg: #eef0f4; --neu-fg: #5b6577;
+  --warn-bg: #fbf0dc; --warn-fg: #7a4b06;
+  --neg-bg: #fbe6e6; --neg-fg: #8e2626;
+
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-body);
+  --font-mono: var(--font-body);
+  --side-w: 296px;
+  --rail-w: 60px;
+  --top-h: 52px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: var(--n-950); --surface: var(--n-900); --fg: var(--n-0); --muted: var(--n-400);
+    --line: var(--n-800); --chip: var(--n-800); --hl: var(--b-300); --accent: var(--b-300); --accent-soft: var(--b-950);
+    --est-bg: #1d2843; --est-fg: #93abeb; --neu-bg: #1f2532; --neu-fg: #98a2b3;
+    --warn-bg: #3a2c12; --warn-fg: #f0c675; --neg-bg: #3d1c1e; --neg-fg: #f1a3a3;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: var(--n-950); --surface: var(--n-900); --fg: var(--n-0); --muted: var(--n-400);
+  --line: var(--n-800); --chip: var(--n-800); --hl: var(--b-300); --accent: var(--b-300); --accent-soft: var(--b-950);
+  --est-bg: #1d2843; --est-fg: #93abeb; --neu-bg: #1f2532; --neu-fg: #98a2b3;
+  --warn-bg: #3a2c12; --warn-fg: #f0c675; --neg-bg: #3d1c1e; --neg-fg: #f1a3a3;
+  color-scheme: dark;
+}
+h1, h2, h4, .side-title, .index-unit .t, .pager .pt, .topbar-title { letter-spacing: -0.015em; }
+.head-btns { display: flex; gap: 2px; flex: none; }
+.theme-btn .i-sun { display: none; }
+.is-dark .theme-btn .i-sun { display: block; }
+.is-dark .theme-btn .i-moon { display: none; }
+.app.collapsed .head-btns { flex-direction: column; align-items: center; }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15.5px; line-height: 1.6;
+}
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+.app { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh; transition: grid-template-columns .2s ease; }
+.app.collapsed { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+
+/* Sidebar */
+.side {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden;
+  background: var(--surface); border-right: 1px solid var(--line);
+  padding-block: 14px 24px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: 12px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.side-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.side-title { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; line-height: 1.25; padding: 4px 4px 0; }
+.side-title small { display: block; font-family: var(--font-body); font-weight: 500; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.icon-btn { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--muted); }
+.icon-btn:hover { background: var(--chip); color: var(--fg); }
+.icon-btn svg { width: 18px; height: 18px; }
+
+.unit { display: flex; flex-direction: column; gap: 2px; }
+.unit-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 6px 6px; border-radius: 6px; text-align: left;
+  font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.unit-toggle:hover { color: var(--fg); }
+.unit-toggle .chev { width: 14px; height: 14px; transition: transform .15s ease; }
+.unit-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.unit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.unit-list[hidden] { display: none; }
+
+.nav-link {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: baseline; gap: 6px;
+  padding: 6px 6px; border-radius: 7px; text-decoration: none; color: var(--fg); font-size: .88rem; line-height: 1.35;
+}
+.nav-link:hover { background: var(--chip); }
+.nav-num { font-family: var(--font-mono); font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.home-nav { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.home-nav .nav-link { align-items: center; font-weight: 500; }
+.home-nav .nav-num svg { width: 16px; height: 16px; display: block; }
+.nav-link.active { background: var(--accent-soft); color: var(--fg); font-weight: 600; box-shadow: inset 2px 0 0 var(--hl); }
+.nav-link.active .nav-num { color: var(--accent); }
+.sub { list-style: none; margin: 2px 0 6px 36px; padding: 0 0 0 10px; border-left: 1px solid var(--line); display: none; }
+.nav-item.open .sub { display: block; }
+.sub a { display: block; padding: 3px 6px; font-size: .8rem; line-height: 1.35; color: var(--muted); text-decoration: none; border-radius: 5px; }
+.sub a:hover { color: var(--fg); background: var(--chip); }
+.sub .sub-sec > a { display: flex; gap: 6px; align-items: baseline; font-weight: 500; color: var(--fg); }
+.sub .sub-sec > a .sn { color: var(--accent); font-size: .72rem; width: 10px; flex: none; font-variant-numeric: tabular-nums; }
+.sub-r { list-style: none; margin: 0 0 3px 16px; padding: 0; }
+.sub-r a { font-size: .76rem; font-weight: 400; }
+
+/* Collapsed rail */
+.app.collapsed .side { padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: 8px; }
+.app.collapsed .side-title, .app.collapsed .unit-toggle, .app.collapsed .nav-text, .app.collapsed .sub { display: none !important; }
+.app.collapsed .side-head { justify-content: center; }
+.app.collapsed .unit-list[hidden] { display: flex; }
+.app.collapsed .unit { padding-top: 8px; border-top: 1px solid var(--line); }
+.app.collapsed .unit:first-of-type { border-top: 0; padding-top: 0; }
+.app.collapsed .nav-link { grid-template-columns: 1fr; text-align: center; padding: 7px 0; }
+.app.collapsed .nav-num { font-size: .8rem; }
+.app.collapsed .home-nav .nav-num svg { margin: 0 auto; }
+
+/* Top bar (phone) */
+.topbar { display: none; }
+
+/* Main */
+main { min-width: 0; padding-block: 40px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.col { max-width: 46rem; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+.intro h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.7rem, 3.4vw, 2.3rem); line-height: 1.15; margin: 0 0 10px; text-wrap: balance; }
+.intro p { margin: 0; color: var(--muted); max-width: 62ch; }
+.units-key { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding: 0; list-style: none; }
+.units-key li { font-size: .8rem; background: var(--chip); border-radius: 999px; padding: 4px 11px; color: var(--muted); }
+.units-key b { color: var(--fg); font-weight: 600; }
+
+.session { scroll-margin-top: 20px; display: flex; flex-direction: column; gap: 6px; }
+.view[hidden] { display: none !important; }
+.index { list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.index-unit h2 { font-size: .74rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.index-unit ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.index-unit li + li { border-top: 1px solid var(--line); }
+.index-unit a { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: baseline; gap: 8px; padding: 12px 16px; text-decoration: none; color: var(--fg); }
+.index-unit a:hover { background: var(--accent-soft); }
+.index-unit .n { font-family: var(--font-mono); font-size: .8rem; color: var(--accent); }
+.index-unit .t { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; line-height: 1.3; }
+.index-unit .c { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.crumb { font-size: .82rem; margin: 0 0 18px; }
+.crumb a { text-decoration: none; }
+.crumb a:hover { text-decoration: underline; }
+.pager { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--line); }
+.pager a { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); text-decoration: none; color: var(--fg); min-width: 0; }
+.pager a:hover { border-color: var(--hl); }
+.pager .dir { font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pager .pt { font-family: var(--font-display); font-weight: 600; line-height: 1.3; }
+.pager .next { grid-column: 2; text-align: right; }
+@media (max-width: 520px) { .pager { grid-template-columns: 1fr; } .pager .next { grid-column: 1; } .index-unit .c { display: none; } .index-unit a { grid-template-columns: 34px minmax(0, 1fr); } }
+.eyebrow { font-family: var(--font-mono); font-size: .76rem; font-weight: 500; color: var(--accent); letter-spacing: .02em; font-variant-numeric: tabular-nums; margin: 0; }
+.session h2 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.4rem, 2.6vw, 1.75rem); line-height: 1.2; margin: 2px 0 8px; text-wrap: balance; }
+.session h3 { font-size: .74rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 6px; }
+.session p { margin: 0 0 10px; max-width: 68ch; }
+.dtable { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.doctrine-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .88rem; line-height: 1.5; }
+.doctrine-table col.l1 { width: 34%; }
+.doctrine-table col.l2 { width: 66%; }
+.doctrine-table thead th { text-align: left; font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--chip); padding: 8px 14px; }
+.doctrine-table tbody th, .doctrine-table td { vertical-align: top; text-align: left; padding: 13px 14px; border-top: 1px solid var(--line); overflow-wrap: break-word; }
+.doctrine-table tbody th { font-weight: 400; }
+.doctrine-table .dn { display: block; font-weight: 600; color: var(--fg); line-height: 1.35; margin-bottom: 4px; }
+.doctrine-table .dr { display: block; font-size: .82rem; line-height: 1.45; color: var(--muted); }
+.lin { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; position: relative; }
+.lin li { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: .86rem; line-height: 1.45; }
+.chip { justify-self: start; font-size: .68rem; font-weight: 600; letter-spacing: .02em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.est { background: var(--est-bg); color: var(--est-fg); }
+.chip.neu { background: var(--neu-bg); color: var(--neu-fg); }
+.chip.nar { background: var(--warn-bg); color: var(--warn-fg); }
+.chip.rej { background: var(--neg-bg); color: var(--neg-fg); }
+.chip.src { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--muted); }
+.chip[title] { cursor: help; }
+.session .legend { margin: 0; max-width: none; padding: 10px 14px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .74rem; color: var(--muted); }
+.legend .lg { font-weight: 600; }
+.legend .chip + .lg { margin-left: 12px; }
+.lt a { font-weight: 600; text-decoration: none; }
+.lt a:hover { text-decoration: underline; }
+.lt .yr { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.lt .ln { display: block; color: var(--fg); }
+.bgauth { margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--chip); font-size: .8rem; line-height: 1.5; color: var(--muted); max-width: none; }
+.session .bgauth { margin: 0; max-width: none; }
+.bgl { display: inline-block; margin-right: 6px; font-size: .66rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+@media (max-width: 600px) {
+  .doctrine-table, .doctrine-table tbody, .doctrine-table tr, .doctrine-table th, .doctrine-table td { display: block; width: 100%; }
+  .doctrine-table colgroup, .doctrine-table thead { display: none; }
+  .doctrine-table tbody tr { padding: 14px; border-top: 1px solid var(--line); }
+  .doctrine-table tbody tr:first-child { border-top: 0; }
+  .doctrine-table tbody th, .doctrine-table td { padding: 0; border: 0; }
+  .doctrine-table tbody th { margin-bottom: 10px; }
+  .lin li { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}
+
+.readings { display: flex; flex-direction: column; gap: 14px; }
+.reading { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; scroll-margin-top: 20px; }
+.reading h4 { font-family: var(--font-display); font-weight: 600; font-size: 1.04rem; line-height: 1.35; margin: 0 0 8px; text-wrap: balance; }
+.reading p { margin: 0; }
+.reading .note { display: inline-block; margin-top: 10px; font-size: .76rem; color: var(--muted); background: var(--chip); border-radius: 5px; padding: 2px 8px; }
+.sec { scroll-margin-top: 20px; }
+.sec + .sec { margin-top: 30px; border-top: 1px solid var(--line); }
+.sec > h3 { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 12px; }
+.sec > h3 .sn { color: var(--accent); font-variant-numeric: tabular-nums; }
+.session .cq { margin: 0 0 14px; padding: 12px 16px; border-radius: 10px; background: var(--accent-soft); font-size: 1.06rem; font-weight: 500; line-height: 1.45; letter-spacing: -0.01em; max-width: none; }
+.ideas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.idea { border-top: 2px solid var(--hl); padding: 12px 2px 4px; scroll-margin-top: 20px; transition: background .3s ease; }
+.idea:target { background: var(--accent-soft); }
+.idea h4 { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; line-height: 1.3; margin: 0 0 6px; text-wrap: balance; }
+.idea p { margin: 0; font-size: .92rem; }
+.further { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.further > li { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.further .cite { margin: 0 0 6px; font-size: .92rem; font-weight: 600; line-height: 1.5; }
+.further .cite em { font-weight: 600; }
+.session .further .fsum { margin: 0 0 6px; font-size: .9rem; line-height: 1.55; }
+.further .fkey { margin: 0 0 8px; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 2px; font-size: .86rem; line-height: 1.5; color: var(--muted); max-width: 68ch; }
+.further .fkey li::marker { color: var(--hl); }
+.further .meta { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .78rem; color: var(--muted); }
+.further .meta a { text-decoration: none; }
+.further .meta a:hover { text-decoration: underline; }
+@media (max-width: 600px) { .ideas { grid-template-columns: minmax(0, 1fr); } .sec, .idea { scroll-margin-top: calc(var(--top-h) + 16px); } }
+
+/* Phone: drawer */
+@media (max-width: 860px) {
+  .app, .app.collapsed { grid-template-columns: minmax(0, 1fr); }
+  .topbar {
+    display: flex; align-items: center; gap: 10px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    height: var(--top-h); background: var(--surface); border-bottom: 1px solid var(--line);
+    padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
+  .topbar-title { font-family: var(--font-display); font-weight: 600; font-size: .98rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side {
+    position: fixed; z-index: 40; top: 0; left: 0; bottom: 0; height: auto; width: min(320px, 86vw);
+    padding-top: calc(14px + env(safe-area-inset-top, 0px)); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-105%); transition: transform .2s ease; box-shadow: none;
+  }
+  .app.drawer-open .side { transform: none; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .app.collapsed .side-title, .app.collapsed .unit-toggle, .app.collapsed .nav-text { display: initial !important; }
+  .scrim { position: fixed; inset: 0; z-index: 35; background: rgba(10, 14, 20, .45); }
+  .collapse-btn { display: none; }
+  main { padding-block: 24px 72px; }
+  html { scroll-padding-top: calc(var(--top-h) + 16px); }
+  .session, .reading { scroll-margin-top: calc(var(--top-h) + 16px); }
+}
+@media (min-width: 861px) { .scrim, .close-btn { display: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <button class="icon-btn" id="openDrawer" aria-label="Open session list" aria-controls="side" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <span class="topbar-title">Media, the Internet and AI</span>
+    <button class="icon-btn theme-btn" type="button" aria-label="Switch to dark mode" title="Switch to dark mode" style="margin-left:auto">
+      <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </header>
+
+  <nav class="side" id="side" aria-label="Sessions">
+    <div class="side-head">
+      <div class="side-title"><small>Session summaries</small>Media, the Internet and Artificial Intelligence</div>
+      <div class="head-btns">
+      <button class="icon-btn theme-btn" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="icon-btn collapse-btn" id="collapseBtn" aria-label="Collapse sidebar" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <button class="icon-btn close-btn" id="closeDrawer" aria-label="Close session list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      </div>
+    </div>
+
+    <div class="home-nav">
+      <a class="nav-link" href="#overview" title="All sessions"><span class="nav-num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nav-text">All sessions</span></a>
+    </div>
+
+    <div class="unit">
+      <button class="unit-toggle" aria-expanded="true" aria-controls="u1">Unit I · The problem<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+      <ul class="unit-list" id="u1">
+        <li class="nav-item"><a class="nav-link" href="#s1"><span class="nav-num">S1</span><span class="nav-text">Digital platforms, bottlenecks and forced freeriding</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s1-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s1-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s1-r1">Stigler Center report</a></li><li><a href="#s1-r2">News Corp comments to FTC</a></li><li><a href="#s1-r3">Pitofsky testimony</a></li><li><a href="#s1-r4">Sulzberger speech</a></li><li><a href="#s1-r5">WSJ on Google AI tools</a></li></ul></li><li class="sub-sec"><a href="#s1-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s1-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s1-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+      </ul>
+    </div>
+
+    <div class="unit">
+      <button class="unit-toggle" aria-expanded="true" aria-controls="u2">Unit II · Content and liability law<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+      <ul class="unit-list" id="u2">
+        <li class="nav-item"><a class="nav-link" href="#s2"><span class="nav-num">S2</span><span class="nav-text">Copyright basics and fair use</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s2-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s2-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s2-r1">Feist v. Rural Telephone</a></li><li><a href="#s2-r2">Harper &amp; Row v. Nation</a></li><li><a href="#s2-r3">Authors Guild v. Google</a></li><li><a href="#s2-r4">News Corp to Copyright Office (2021)</a></li></ul></li><li class="sub-sec"><a href="#s2-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s2-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s2-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s3"><span class="nav-num">S3</span><span class="nav-text">State law claims, hot news and preemption</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s3-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s3-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s3-r1">INS v. AP</a></li><li><a href="#s3-r2">NBA v. Motorola</a></li><li><a href="#s3-r3">Barclays v. Theflyonthewall.com</a></li></ul></li><li class="sub-sec"><a href="#s3-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s3-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s3-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s4"><span class="nav-num">S4</span><span class="nav-text">Section 230</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s4-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s4-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s4-r1">Zeran v. AOL</a></li><li><a href="#s4-r2">Barnes v. Yahoo!</a></li><li><a href="#s4-r3">Force v. Facebook</a></li><li><a href="#s4-r4">Anderson v. TikTok</a></li></ul></li><li class="sub-sec"><a href="#s4-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s4-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s4-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+      </ul>
+    </div>
+
+    <div class="unit">
+      <button class="unit-toggle" aria-expanded="true" aria-controls="u3">Unit III · Antitrust and platform power<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+      <ul class="unit-list" id="u3">
+        <li class="nav-item"><a class="nav-link" href="#s5"><span class="nav-num">S5</span><span class="nav-text">Antitrust law and platforms</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s5-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s5-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s5-r1">Khan, Amazon's Antitrust Paradox</a></li><li><a href="#s5-r2">Hovenkamp, Duty to Deal</a></li></ul></li><li class="sub-sec"><a href="#s5-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s5-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s5-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s6"><span class="nav-num">S6</span><span class="nav-text">EU vs. U.S. competition law: Amazon e-books</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s6-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s6-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s6-r1">EC Amazon e-book decision</a></li><li><a href="#s6-r2">Baker &amp; Scott Morton</a></li></ul></li><li class="sub-sec"><a href="#s6-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s6-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s6-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s7"><span class="nav-num">S7</span><span class="nav-text">Platform capture and exclusion</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s7-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s7-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s7-r1">U.S. v. Google (search)</a></li><li><a href="#s7-r2">Valassis v. News Corp</a></li></ul></li><li class="sub-sec"><a href="#s7-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s7-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s7-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s8"><span class="nav-num">S8</span><span class="nav-text">Platform annexation and self-preferencing</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s8-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s8-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s8-r1">U.S. v. Google (ad tech)</a></li><li><a href="#s8-r2">Athey &amp; Scott Morton</a></li></ul></li><li class="sub-sec"><a href="#s8-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s8-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s8-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+      </ul>
+    </div>
+
+    <div class="unit">
+      <button class="unit-toggle" aria-expanded="true" aria-controls="u4">Unit IV · Generative AI litigation<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+      <ul class="unit-list" id="u4">
+        <li class="nav-item"><a class="nav-link" href="#s9"><span class="nav-num">S9</span><span class="nav-text">Fair use for news and information services</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s9-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s9-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s9-r1">AP v. Meltwater</a></li><li><a href="#s9-r2">Fox News v. TVEyes</a></li><li><a href="#s9-r3">Nihon Keizai v. Comline</a></li><li><a href="#s9-r4">Thomson Reuters v. Ross</a></li><li><a href="#s9-r5">News Corp to Copyright Office (AI)</a></li></ul></li><li class="sub-sec"><a href="#s9-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s9-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s9-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s10"><span class="nav-num">S10</span><span class="nav-text">LLM training cases</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s10-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s10-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s10-r1">Bartz v. Anthropic</a></li><li><a href="#s10-r2">Kadrey v. Meta</a></li><li><a href="#s10-r3">NYT v. Microsoft &amp; OpenAI</a></li></ul></li><li class="sub-sec"><a href="#s10-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s10-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s10-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="#s11"><span class="nav-num">S11</span><span class="nav-text">RAG and generative AI outputs</span></a>
+          <ul class="sub"><li class="sub-sec"><a href="#s11-o"><span class="sn">1</span> Overview</a></li><li class="sub-sec"><a href="#s11-rd"><span class="sn">2</span> Readings</a><ul class="sub-r"><li><a href="#s11-r1">Dow Jones v. Perplexity</a></li></ul></li><li class="sub-sec"><a href="#s11-d"><span class="sn">3</span> Doctrines</a></li><li class="sub-sec"><a href="#s11-kd"><span class="sn">4</span> Key debates</a></li><li class="sub-sec"><a href="#s11-f"><span class="sn">5</span> Further reading</a></li></ul></li>
+      </ul>
+    </div>
+  </nav>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <main>
+    <div class="col">
+      <header class="intro view" id="home">
+        <h1>Media, the Internet and Artificial Intelligence: Competition, Copyright, and Consumer Protection</h1>
+        <p>Session-by-session summaries of the course materials: the topic, the key doctrines and cases, and a summary of each assigned reading.</p>
+        <ul class="units-key">
+          <li><b>Unit I</b> · S1</li>
+          <li><b>Unit II</b> · S2–S4</li>
+          <li><b>Unit III</b> · S5–S8</li>
+          <li><b>Unit IV</b> · S9–S11</li>
+        </ul>
+        <div class="index" id="index"></div>
+      </header>
+
+      <!-- SESSION 1 -->
+      <section class="session" id="s1">
+        <p class="eyebrow">Session 1 · Unit I</p>
+        <h2>Digital platforms, bottlenecks and forced freeriding</h2>
+        <div class="sec" id="s1-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">Why is the news business failing, and is platform freeriding to blame?</p><p>The news industry has lost most of its revenue and newsroom jobs since about 2005. Annual newspaper revenue fell from $50 billion to $20 billion, more than 2,500 papers closed, and newsroom employment fell 60%. This session asks why. Its answer is that digital platforms capture the audience and advertising that news content attracts without paying for that content. Publishers cannot refuse to deal with them, which the course calls "forced freeriding." The session previews the legal tools the rest of the course examines: copyright, state unfair competition law, Section 230 and antitrust.</p></div>
+        <div class="sec" id="s1-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s1-r1">
+            <h4>Stigler Center, Committee for the Study of Digital Platforms, Media Subcommittee Report (July 2019) (excerpt)</h4>
+            <p>The report argues that Google and Facebook, now the largest media companies in history, have changed how news is produced and consumed. It names four concerns: the collapse of the ad-supported business model behind accountability journalism; the shift of distribution to opaque, concentrated algorithms; the lack of data on news consumption; and weak incentives for platforms to favor quality over false information. It rejects a "golden age" story and attempts to steer ad dollars back to publishers. Instead it recommends citizen-directed public funding, more transparency and procompetitive reforms.</p>
+          </article>
+          <article class="reading" id="s1-r2">
+            <h4>Comments of News Corp to the FTC, Hearings on Competition and Consumer Protection in the 21st Century (Aug. 20, 2018)</h4>
+            <p>Writing ahead of hearings echoing the 1995 "Pitofsky Hearings," News Corp asks the FTC to update its antitrust thinking for platforms. It argues that enforcers should look beyond price and output to quality, innovation and diversity of news. It asks the FTC to adopt presumptions suited to platform markets, to treat data as a barrier to entry, and to consider algorithm transparency. It stresses that harm to news is uniquely serious because the press supports democratic self-government.</p>
+          </article>
+          <article class="reading" id="s1-r3">
+            <h4>David Pitofsky, Written Testimony to the House Judiciary Antitrust Subcommittee, "Online Platforms and Market Power, Part 1: The Free and Diverse Press" (2019)</h4>
+            <p>Testifying as News Corp's general counsel, Pitofsky says the market for news is "broken." Platforms use publishers' content to target their audiences, then sell that attention to the same advertisers. He says only about 30 cents of each ad-tech dollar reaches publishers, compared with 85 cents before the internet. He also argues that Google demotes paywalled content, undercutting subscription models. Copyright alone cannot fix the problem, which is rooted in platform dominance. He supports the Journalism Competition and Preservation Act, which would let publishers bargain with platforms collectively.</p>
+          </article>
+          <article class="reading" id="s1-r4">
+            <h4>A.G. Sulzberger, "A.I., Journalism and the Uncertain Future of the Public Square," remarks at the WAN-IFRA World News Media Congress (June 1, 2026)</h4>
+            <p>The New York Times publisher argues that AI companies are built on a "brazen theft" of copyrighted work. They pay for talent, compute and energy but not for content, even though news sites are among their most important training sources. He says AI answers are cutting referral traffic sharply: AI chatbots send 96% less traffic than Google search, and large newspapers have lost more than 45% of their traffic. They also often misstate the news. He urges publishers to enforce their rights, license carefully, lobby for transparency and bot-identification rules, and become destinations built on original reporting.</p>
+            <span class="note">Scanned PDF; read via OCR</span>
+          </article>
+          <article class="reading" id="s1-r5">
+            <h4>Isabella Simonetti &amp; Katherine Blunt, "News Sites Are Getting Crushed by Google's New AI Tools," Wall Street Journal (June 10, 2025)</h4>
+            <p>Google's AI Overviews and AI Mode answer queries directly, sharply reducing clicks to publishers. From 2022 to 2025, organic search traffic fell by about half at HuffPost and Business Insider (55%), and nearly as much at the Washington Post. Business Insider cut 21% of its staff, and the Atlantic's CEO told staff to assume Google traffic will drop toward zero. Google says it remains committed to sending traffic to the web.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s1-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Economics of news</span><span class="dr">News is costly to produce and cheap to copy, and much of its value goes to society rather than the publisher.</span></th><td><ol class="lin"><li><span class="chip src" title="Provides facts or evidence rather than a legal rule.">Documents</span><span class="lt"><a href="#s1-r1">Stigler Center report</a> <span class="yr">(2019)</span><span class="ln">markets underproduce accountability journalism</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s1-r3">Pitofsky testimony</a> <span class="yr">(2019)</span><span class="ln">fast copying erases the exclusivity window that once protected news</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Platforms as bottlenecks</span><span class="dr">A platform that controls access to the audience can set terms for the content it carries ("forced freeriding").</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s1-r2">News Corp comments to FTC</a> <span class="yr">(2018)</span><span class="ln">antitrust should weigh quality and diversity of news, not just price</span></span></li><li><span class="chip src" title="A commentator argues the current rule falls short.">Critiques</span><span class="lt"><a href="#s1-r1">Stigler Center report</a> <span class="yr">(2019)</span><span class="ln">intervention must not hand platforms more power; favors subsidies</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s1-r3">Pitofsky testimony</a> <span class="yr">(2019)</span><span class="ln">publishers cannot bargain over content or ad-tech terms</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">From complement to substitute</span><span class="dr">Over the platform lifecycle, a platform that once sent readers to publishers comes to replace them.</span></th><td><ol class="lin"><li><span class="chip src" title="Provides facts or evidence rather than a legal rule.">Documents</span><span class="lt"><a href="#s1-r5">WSJ, Google AI tools</a> <span class="yr">(2025)</span><span class="ln">AI Overviews cut organic search traffic by about half</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s1-r4">Sulzberger speech</a> <span class="yr">(2026)</span><span class="ln">AI ends the open web's traffic-for-content exchange</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Thin protection for news</span><span class="dr">Copyright protects expression, not facts, which leaves news easy to repackage.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s1-r3">Pitofsky testimony</a> <span class="yr">(2019)</span><span class="ln">copyright alone cannot fix a problem rooted in platform dominance</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s1-r4">Sulzberger speech</a> <span class="yr">(2026)</span><span class="ln">AI copying violates settled law; publishers must enforce their rights</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> Platform lifecycle (matchmaking, standard setting, monetization) from the lecture slides; previews the legal tools covered in Sessions 2–8.</p></div></div>
+        <div class="sec" id="s1-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s1-k1"><h4>Platforms or the internet itself?</h4><p>Publishers blame platform freeriding and market power for the decline of news. Skeptics, including the Stigler report, point out that classified ads moved to Craigslist and job sites before platforms dominated, and that the ad-funded model was always fragile. On that view, sending ad money back to publishers would not restore journalism.</p></article>
+        <article class="idea" id="s1-k2"><h4>Complement or substitute?</h4><p>Platforms say they send publishers valuable traffic in exchange for showing snippets. Publishers say platforms have become substitutes, and AI answers that remove the need to click make the case stronger. Much of the fight turns on how to measure the value of a referral.</p></article>
+        <article class="idea" id="s1-k3"><h4>Bargaining, subsidy or antitrust?</h4><p>Proposals range from collective bargaining codes (Australia's News Media Bargaining Code, the U.S. Journalism Competition and Preservation Act) to public funding and licensing deals. Critics warn that bargaining codes mostly benefit large publishers, and that platforms can respond by dropping news, as Meta did in Canada in 2023.</p></article>
+        <article class="idea" id="s1-k4"><h4>Is journalism a public good?</h4><p>If accountability journalism produces benefits readers will not pay for, markets will always underproduce it. That argument supports subsidies. Publishers prefer stronger property rights that let them charge for their work.</p></article>
+        </div></div>
+        <div class="sec" id="s1-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Tim Wu, <em>The Attention Merchants: The Epic Scramble to Get Inside Our Heads</em> (Knopf 2016)</p><p class="fsum">A history of businesses that capture human attention and resell it to advertisers, from the penny press to Google and Facebook.</p><ul class="fkey"><li>Attention is the product sold to advertisers; readers and users are the raw material.</li><li>Each new medium follows a cycle: commercialized by ads, then a backlash against clutter.</li><li>Digital platforms are the most efficient attention harvesters yet, at news publishers' expense.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s1-k2">Complement or substitute?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Tim+Wu+The+Attention+Merchants" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Victor Pickard, <em>Democracy Without Journalism? Confronting the Misinformation Society</em> (Oxford Univ. Press 2019)</p><p class="fsum">Argues the journalism crisis is a structural market failure, not just a technology shock, because commercial news always depended on advertising.</p><ul class="fkey"><li>Accountability journalism is a public good that markets underproduce.</li><li>The ad-funded model was a historical accident, not a natural arrangement.</li><li>Calls for public funding and noncommercial ownership of news.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s1-k4">Is journalism a public good?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Pickard+Democracy+Without+Journalism" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Julia Cagé, <em>Saving the Media: Capitalism, Crowdfunding, and Democracy</em> (Harvard Univ. Press 2016)</p><p class="fsum">Proposes a new nonprofit media company model that mixes foundation status with crowdfunding and limits on donor control.</p><ul class="fkey"><li>Rising costs and falling ad revenue make the purely commercial model unsustainable.</li><li>Tax-deductible donations could fund news organizations as long-term capital.</li><li>Caps on large donors' voting power protect editorial independence.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s1-k3">Bargaining, subsidy or antitrust?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Cage+Saving+the+Media+Capitalism+Crowdfunding+Democracy" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Australian Competition and Consumer Commission, <em>Digital Platforms Inquiry: Final Report</em> (2019)</p><p class="fsum">Australia's inquiry into how Google and Facebook affect competition, advertising and journalism; it led to the News Media Bargaining Code.</p><ul class="fkey"><li>Both platforms hold substantial market power in key markets.</li><li>News businesses face a large imbalance in bargaining power with them.</li><li>Recommended a bargaining code, ad tech scrutiny and support for local journalism.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s1-k3">Bargaining, subsidy or antitrust?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=ACCC+Digital+Platforms+Inquiry+Final+Report+2019" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Penelope Muse Abernathy, <em>News Deserts and Ghost Newspapers: Will Local News Survive?</em> (UNC Hussman School of Journalism and Media 2020)</p><p class="fsum">Maps the loss of U.S. local newspapers and the spread of communities with little or no local news.</p><ul class="fkey"><li>About 2,100 U.S. newspapers closed between 2004 and 2020.</li><li>Many survivors are "ghost newspapers" with too few reporters to cover their communities.</li><li>Chains and investment firms increasingly own what remains.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s1-k1">Platforms or the internet itself?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Abernathy+News+Deserts+and+Ghost+Newspapers" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Margaret Sullivan, <em>Ghosting the News: Local Journalism and the Crisis of American Democracy</em> (Columbia Global Reports 2020)</p><p class="fsum">A Washington Post media columnist's short book on the collapse of local news and what it costs democracy.</p><ul class="fkey"><li>Research links the loss of local papers to lower civic engagement and higher local borrowing costs.</li><li>National outlets and social media cannot replace local reporting.</li><li>Surveys remedies, from nonprofit newsrooms to public support.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s1-k1">Platforms or the internet itself?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Sullivan+Ghosting+the+News+Local+Journalism" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 2 -->
+      <section class="session" id="s2">
+        <p class="eyebrow">Session 2 · Unit II</p>
+        <h2>Copyright basics and fair use</h2>
+        <div class="sec" id="s2-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">How much can copyright protect news when the facts are free for anyone to take?</p><p>Copyright is the publisher's first line of defense, but news gets only "thin" protection: the facts are free to all, and only the way they are written is protected. This session covers what copyright protects, what counts as infringement, and how fair use lets others copy for new purposes. It closes with the search-engine and news-monitoring cases that set up the AI fights later in the course.</p></div>
+        <div class="sec" id="s2-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s2-r1">
+            <h4><em>Feist Publications v. Rural Telephone Service</em>, 499 U.S. 340 (1991)</h4>
+            <p>Feist copied listings from Rural's white pages for its own regional directory. The Supreme Court held that originality, meaning independent creation plus a "modicum of creativity," is a constitutional requirement. Facts are not original and cannot be copyrighted. A compilation is protected only in its original selection and arrangement, and alphabetical listings have none. The Court rejected the "sweat of the brow" theory, which had protected compilations because of the effort that went into them. Facts are "free for the taking."</p>
+            <span class="note">Scanned PDF; read via OCR</span>
+          </article>
+          <article class="reading" id="s2-r2">
+            <h4><em>Harper &amp; Row v. Nation Enterprises</em>, 471 U.S. 539 (1985)</h4>
+            <p><em>The Nation</em> scooped <em>Time</em>'s licensed excerpt of Gerald Ford's unpublished memoir by quoting about 300 words, including the key passages on the Nixon pardon. <em>Time</em> canceled its deal. The Court held this was not fair use. The work was unpublished, the quotes were the "heart" of the book, the use was a commercial scoop, and it directly destroyed a licensing market. Factor four is called the "single most important element." The Court also held there is no general public-interest exception for newsworthy works, and that bad faith weighs against fair use.</p>
+          </article>
+          <article class="reading" id="s2-r3">
+            <h4><em>Authors Guild v. Google</em>, 804 F.3d 202 (2d Cir. 2015) (Google Books)</h4>
+            <p>Google scanned millions of library books to create a searchable index that shows only short "snippets." Judge Leval held this was fair use. Search and snippet display are highly transformative because they give information about books rather than substituting for them. Copying whole books was necessary for the purpose. Google's security measures and snippet limits meant the use did not provide a meaningful market substitute. The opinion marks the outer edge of transformative copying and is central to AI training defenses.</p>
+          </article>
+          <article class="reading" id="s2-r4">
+            <h4>Comments of News Corp to the Copyright Office, Publishers' Protections Study (Nov. 26, 2021)</h4>
+            <p>News Corp argues that U.S. law has not kept up with digital freeriding and that news deserts are the result. It lists gaps in protection: thin copyright for facts-based news; common-law misappropriation remedies limited by preemption; no way to register dynamic web content in bulk; weak anti-circumvention remedies under § 1201; and unlicensed ingestion of news for machine learning. It also points to the "unlevel playing field" with dominant platforms, and urges Congress to consider copyright, antitrust and § 230 reform together.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s2-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Originality and the fact/expression line</span><span class="dr">Copyright protects original expression, never facts. Compilations are protected only in their original selection and arrangement (§§ 102–103).</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s2-r2"><em>Harper &amp; Row</em></a> <span class="yr">(1985)</span><span class="ln">a factual memoir is protected in its expression; no news exception</span></span></li><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s2-r1"><em>Feist</em></a> <span class="yr">(1991)</span><span class="ln">originality is constitutional; rejects "sweat of the brow"</span></span></li><li><span class="chip src" title="A commentator argues the current rule falls short.">Critiques</span><span class="lt"><a href="#s2-r4">News Corp to Copyright Office</a> <span class="yr">(2021)</span><span class="ln">thin protection leaves news open to freeriding</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Fair use factors (§ 107)</span><span class="dr">Courts weigh purpose and character, the nature of the work, the amount taken, and market effect.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s2-r2"><em>Harper &amp; Row</em></a> <span class="yr">(1985)</span><span class="ln">unpublished work, "heart" of the book, commercial scoop</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s2-r3"><em>Authors Guild v. Google</em></a> <span class="yr">(2015)</span><span class="ln">all four factors favor Google</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Transformative use</span><span class="dr">A use with a new purpose that does not replace the original weighs toward fair use.</span></th><td><ol class="lin"><li><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="lt"><a href="#s2-r3"><em>Authors Guild v. Google</em></a> <span class="yr">(2015)</span><span class="ln">copying whole books for search and snippets is transformative</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Market harm and licensing</span><span class="dr">Factor four asks whether the use substitutes for the original or a market its owner would develop.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s2-r2"><em>Harper &amp; Row</em></a> <span class="yr">(1985)</span><span class="ln">factor four is the "single most important element"; lost serialization deal counts</span></span></li><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s2-r3"><em>Authors Guild v. Google</em></a> <span class="yr">(2015)</span><span class="ln">snippets do not provide a meaningful substitute</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s2-r4">News Corp to Copyright Office</a> <span class="yr">(2021)</span><span class="ln">aggregation and machine-learning ingestion harm publishers' markets</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>Campbell v. Acuff-Rose</em> (1994); <em>Kelly v. Arriba Soft</em> (2003); <em>Perfect 10 v. Amazon</em> (2007); <em>AP v. Meltwater</em> (2013, Session 9); infringement elements and secondary liability.</p></div></div>
+        <div class="sec" id="s2-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s2-k1"><h4>How thin is copyright in news?</h4><p><em>Feist</em> leaves facts free, but news writing involves selection, framing and expression. The hard question is how close a summary can come before it takes expression. Some argue for a separate publishers' right, like Article 15 of the EU's 2019 copyright directive. Others say the free flow of facts is the point of the system.</p></article>
+        <article class="idea" id="s2-k2"><h4>Has transformative use gone too far?</h4><p><em>Google Books</em> stretched transformative use to cover copying entire works for an informational purpose. Critics say the doctrine swallowed factor four. <em>Andy Warhol Foundation v. Goldsmith</em> (2023) pulled back by comparing the purposes of the two uses and weighing commerciality.</p></article>
+        <article class="idea" id="s2-k3"><h4>The circularity of lost licensing fees</h4><p>Any use could be licensed, so counting a lost fee as market harm would defeat every fair use claim. Courts count a lost fee only where the licensing market is traditional, reasonable or likely to develop. That standard becomes decisive once AI licensing deals exist.</p></article>
+        <article class="idea" id="s2-k4"><h4>Search engine or substitute?</h4><p>Search engines point users to the original and have won fair use cases. Clipping services and aggregators deliver the content itself and have lost. Every new news product gets argued onto one side of this line.</p></article>
+        </div></div>
+        <div class="sec" id="s2-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Pierre N. Leval, "Toward a Fair Use Standard," 103 Harv. L. Rev. 1105 (1990)</p><p class="fsum">Judge Leval's article that introduced "transformative" use as the center of the first fair use factor.</p><ul class="fkey"><li>Fair use exists to serve copyright's purpose of encouraging new creativity.</li><li>A use is favored when it adds a new purpose or meaning rather than repackaging the original.</li><li>Rejects mechanical presumptions against commercial or unpublished uses.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s2-k2">Has transformative use gone too far?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Leval+Toward+a+Fair+Use+Standard" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Wendy J. Gordon, "Fair Use as Market Failure: A Structural and Economic Analysis of the <em>Betamax</em> Case and Its Predecessors," 82 Colum. L. Rev. 1600 (1982)</p><p class="fsum">Argues fair use should apply when market failure prevents a socially valuable use from being licensed.</p><ul class="fkey"><li>Three-part test: market failure, public benefit from the use, and no substantial harm to the author's incentives.</li><li>High transaction costs are the classic reason a license cannot be bargained for.</li><li>Once licensing becomes feasible, the case for fair use weakens.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s2-k3">The circularity of lost licensing fees</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Gordon+Fair+Use+as+Market+Failure+Betamax" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Jane C. Ginsburg, "Creation and Commercial Value: Copyright Protection of Works of Information," 90 Colum. L. Rev. 1865 (1990)</p><p class="fsum">Examines how copyright fits factual and informational works, such as directories and compilations, shortly before <em>Feist</em>.</p><ul class="fkey"><li>Informational works involve little authorship but have high commercial value.</li><li>Copyright's authorship standard fits them poorly.</li><li>Suggests other ways to protect investment in gathering information.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s2-k1">How thin is copyright in news?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Ginsburg+Creation+and+Commercial+Value+Copyright+Protection+of+Works+of+Information" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Barton Beebe, "An Empirical Study of U.S. Copyright Fair Use Opinions, 1978–2005," 156 U. Pa. L. Rev. 549 (2008)</p><p class="fsum">A statistical study of every reported U.S. fair use opinion from 1978 to 2005.</p><ul class="fkey"><li>Factors one and four drive most outcomes.</li><li>Courts often reach a result and then line the factors up behind it.</li><li>Transformativeness mattered less in practice than its reputation suggested.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s2-k2">Has transformative use gone too far?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Beebe+An+Empirical+Study+of+U.S.+Copyright+Fair+Use+Opinions" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Matthew Sag, "Copyright and Copy-Reliant Technology," 103 Nw. U. L. Rev. 1607 (2009)</p><p class="fsum">Defends fair use for technologies that copy works without showing their expression to the public, such as search engines and plagiarism detectors.</p><ul class="fkey"><li>"Non-expressive" uses should not count as infringement.</li><li>Copying for computational analysis does not substitute for the work.</li><li>Lays the groundwork for later text-mining and AI training arguments.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s2-k4">Search engine or substitute?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Sag+Copyright+and+Copy-Reliant+Technology" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite"><em>Andy Warhol Foundation for the Visual Arts v. Goldsmith</em>, 598 U.S. 508 (2023)</p><p class="fsum">The Supreme Court held that licensing a Warhol image based on Lynn Goldsmith's photo of Prince to a magazine was not fair use.</p><ul class="fkey"><li>Factor one compares the purpose of the specific use with the purpose of the original.</li><li>New meaning or message alone is not enough when both uses serve the same commercial purpose.</li><li>Commerciality and substitution weigh against fair use.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s2-k2">Has transformative use gone too far?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Andy+Warhol+Foundation+v.+Goldsmith+598+U.S.+508" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 3 -->
+      <section class="session" id="s3">
+        <p class="eyebrow">Session 3 · Unit II</p>
+        <h2>State law claims, "hot news" and copyright preemption</h2>
+        <div class="sec" id="s3-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">Can state law stop rivals from taking news that copyright leaves free?</p><p>Copyright protects only how news is expressed, so publishers have turned to state law to stop rivals from taking the facts they paid to gather. This session follows "hot news" misappropriation from its 1918 origin to its near-elimination by federal preemption. It asks whether anything is left of the doctrine that could reach aggregators or AI systems that repackage news.</p></div>
+        <div class="sec" id="s3-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s3-r1">
+            <h4><em>International News Service v. Associated Press</em>, 248 U.S. 215 (1918)</h4>
+            <p>INS, barred from Allied war reporting, copied AP stories from bulletin boards and early East Coast editions and wired them to its West Coast subscribers. The Supreme Court held that news is not copyrightable as such. But as between competitors, AP had a "quasi-property" interest in fresh news, and INS's taking was unfair competition: it reaped where it had not sown. Holmes would have limited relief to requiring attribution. Brandeis dissented, arguing that courts should leave the creation of new property rights in news to the legislature.</p>
+          </article>
+          <article class="reading" id="s3-r2">
+            <h4><em>NBA v. Motorola</em>, 105 F.3d 841 (2d Cir. 1997)</h4>
+            <p>Motorola's SportsTrax pager sent real-time NBA scores and statistics, compiled by STATS reporters watching broadcasts. The Second Circuit held that game broadcasts are copyrightable but the underlying facts are not, and that most misappropriation claims are preempted. Only a narrow INS-type hot news claim survives, defined by the five-part test. NBA lost because Motorola collected the facts itself and did not free-ride on NBA's own real-time data product.</p>
+          </article>
+          <article class="reading" id="s3-r3">
+            <h4><em>Barclays Capital v. Theflyonthewall.com</em>, 650 F.3d 876 (2d Cir. 2011)</h4>
+            <p>Investment banks sued an online service that published their stock recommendations before markets opened. The district court enjoined it on a hot news theory, but the Second Circuit reversed on preemption grounds. The banks were making the news, not gathering it, and Fly was reporting newsworthy facts under its own name rather than passing off the banks' work. The majority treated <em>NBA</em>'s five-part test as dictum and doubted any hot news claim survives. Judge Raggi's concurrence would have applied the test and said any broader protection is for Congress.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s3-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Hot news misappropriation</span><span class="dr">A competitor may not sell fresh news gathered at another's expense.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s3-r1"><em>INS v. AP</em></a> <span class="yr">(1918)</span><span class="ln">quasi-property in news, against competitors only</span></span></li><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s3-r2"><em>NBA v. Motorola</em></a> <span class="yr">(1997)</span><span class="ln">only a five-part claim survives preemption</span></span></li><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s3-r3"><em>Barclays v. Theflyonthewall.com</em></a> <span class="yr">(2011)</span><span class="ln">treats the five-part test as dictum; leaves almost nothing of the claim</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Copyright preemption (§ 301)</span><span class="dr">State rights equivalent to copyright in copyrightable subject matter are preempted unless an extra element saves them.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s3-r2"><em>NBA v. Motorola</em></a> <span class="yr">(1997)</span><span class="ln">broadcasts and the facts in them both fall within copyright's subject matter</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s3-r3"><em>Barclays v. Theflyonthewall.com</em></a> <span class="yr">(2011)</span><span class="ln">the banks' claim over recommendations is preempted</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Palming off vs. misappropriation</span><span class="dr">Passing off another's work as your own differs from taking its value with credit.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s3-r1"><em>INS v. AP</em></a> <span class="yr">(1918)</span><span class="ln">majority finds misappropriation; Holmes would require only attribution</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s3-r3"><em>Barclays v. Theflyonthewall.com</em></a> <span class="yr">(2011)</span><span class="ln">Fly credits the banks, so there is no palming off</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Gathering vs. making news</span><span class="dr">Hot news protects those who gather news, not those whose actions are the news.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s3-r3"><em>Barclays v. Theflyonthewall.com</em></a> <span class="yr">(2011)</span><span class="ln">the banks make the news by issuing recommendations; Fly reports it</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> Unjust enrichment preemption decisions; <em>Metropolitan Opera v. Wagner-Nichols Recorder</em> (N.Y. 1950); legislative history of the 1976 Act.</p></div></div>
+        <div class="sec" id="s3-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s3-k1"><h4>Was <em>INS</em> rightly decided?</h4><p>The majority protected the investment in gathering news, saying no one may reap where they have not sown. Brandeis warned that courts should not create new property rights in information, and Holmes would have required only attribution. Modern scholars still divide on whether misappropriation protects incentives or creates monopolies over facts.</p></article>
+        <article class="idea" id="s3-k2"><h4>How much does § 301 preempt?</h4><p>The <em>Barclays</em> majority left almost nothing of hot news. Judge Raggi would have kept the <em>NBA</em> test. Publishers argue courts read preemption too broadly and leave no remedy for systematic aggregation of the same content.</p></article>
+        <article class="idea" id="s3-k3"><h4>Who is the competitor?</h4><p>Hot news assumes one rival copying one plaintiff's news. Aggregators and AI systems take from every publisher at once and compete with all of them. That makes the direct-competition element hard to apply to the conduct publishers most object to.</p></article>
+        <article class="idea" id="s3-k4"><h4>Courts or Congress?</h4><p>Brandeis and Judge Raggi both say new rights in news belong to the legislature. The open question is whether Congress should create a federal right, as Europe did with its press publishers' right.</p></article>
+        </div></div>
+        <div class="sec" id="s3-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Douglas G. Baird, "Common Law Intellectual Property and the Legacy of <em>International News Service v. Associated Press</em>," 50 U. Chi. L. Rev. 411 (1983)</p><p class="fsum">Examines <em>INS</em> as an early example of courts creating intellectual property rights in information.</p><ul class="fkey"><li><em>INS</em> responds to free-riding on costly information gathering.</li><li>Common-law courts struggle to define property rights in information.</li><li>Judge-made rights can upset the balance struck by federal IP law.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s3-k1">Was <em>INS</em> rightly decided?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Baird+Common+Law+Intellectual+Property+and+the+Legacy+of+International+News+Service" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Richard A. Epstein, "<em>International News Service v. Associated Press</em>: Custom and Law as Sources of Property Rights in News," 78 Va. L. Rev. 85 (1992)</p><p class="fsum">Argues <em>INS</em> enforced a customary norm among news agencies against copying each other's fresh news.</p><ul class="fkey"><li>News agencies had developed their own rules against copying fresh news.</li><li>Courts can recognize such industry customs as property norms.</li><li>Protection should last only as long as the news has commercial value.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s3-k1">Was <em>INS</em> rightly decided?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Epstein+International+News+Service+v.+Associated+Press+Custom+and+Law+as+Sources+of+Property+Rights+in+News" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Richard A. Posner, "Misappropriation: A Dirge," 40 Hous. L. Rev. 621 (2003)</p><p class="fsum">Judge Posner's critique of misappropriation as a doctrine too vague to keep.</p><ul class="fkey"><li>"Reaping without sowing" describes ordinary competition and is not a wrong in itself.</li><li>The doctrine invites overprotection of information.</li><li>Copyright preemption has rightly confined it.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s3-k2">How much does § 301 preempt?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Posner+Misappropriation+A+Dirge" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Shyamkrishna Balganesh, "'Hot News': The Enduring Myth of Property in News," 111 Colum. L. Rev. 419 (2011)</p><p class="fsum">Argues hot news should be understood as a rule against harmful free-riding between competitors, not as property in news.</p><ul class="fkey"><li><em>INS</em> was about competitors, not ownership of facts.</li><li>The test should ask whether free-riding undermines the incentive to gather news.</li><li>Supports a narrow, rehabilitated hot news doctrine.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s3-k3">Who is the competitor?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Balganesh+Hot+News+The+Enduring+Myth+of+Property+in+News" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Directive (EU) 2019/790 on Copyright in the Digital Single Market, art. 15 (press publishers' right)</p><p class="fsum">The EU's 2019 copyright directive gives press publishers a two-year right over online use of their publications by platforms and other online services.</p><ul class="fkey"><li>Covers reproducing and making press content available online.</li><li>Excludes hyperlinks and very short extracts.</li><li>Journalists receive an appropriate share of the resulting revenue.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s3-k4">Courts or Congress?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Directive+2019%2F790+article+15+press+publishers+right" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 4 -->
+      <section class="session" id="s4">
+        <p class="eyebrow">Session 4 · Unit II</p>
+        <h2>Section 230 of the Communications Decency Act</h2>
+        <div class="sec" id="s4-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">Should platforms answer for what users post and what their algorithms recommend?</p><p>Section 230 shields online services from liability for content that third parties post. It lets platforms build businesses on other people's content without the legal exposure publishers face. This session traces how courts turned a narrow 1996 fix for bulletin-board moderation into broad immunity. It then asks whether that immunity covers algorithmic recommendations, and whether it could ever cover output written by generative AI.</p></div>
+        <div class="sec" id="s4-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s4-r1">
+            <h4><em>Zeran v. America Online</em>, 129 F.3d 327 (4th Cir. 1997)</h4>
+            <p>An anonymous AOL user posted fake ads attributing offensive Oklahoma City bombing merchandise to Zeran. Zeran was flooded with threats, and AOL was slow to remove the posts. The Fourth Circuit held § 230 bars claims that treat a service as publisher. It read that to include "traditional editorial functions" such as deciding whether to publish, withdraw or alter content. It also rejected Zeran's argument that AOL could still be liable as a distributor once on notice. That broad reading became the national rule, and the session reviews critiques from Judge Easterbrook and Justice Thomas.</p>
+          </article>
+          <article class="reading" id="s4-r2">
+            <h4><em>Barnes v. Yahoo!</em>, 570 F.3d 1096 (9th Cir. 2009)</h4>
+            <p>Barnes's ex-boyfriend posted fake profiles of her, and a Yahoo! employee promised to take them down but did not. The Ninth Circuit held § 230 bars her negligent-undertaking claim because removing content is publishing activity. But her promissory estoppel claim survived because it rests on Yahoo!'s own promise, not on its status as publisher. The court stresses that § 230 is not a general "immunity" but a bar on certain theories of liability.</p>
+          </article>
+          <article class="reading" id="s4-r3">
+            <h4><em>Force v. Facebook</em>, 934 F.3d 53 (2d Cir. 2019)</h4>
+            <p>Victims of Hamas attacks alleged that Facebook's algorithms recommended Hamas content and connected users with terrorists. The majority held that arranging and recommending content is a publisher's function, and that Facebook did not "develop" the content by using neutral tools. Chief Judge Katzmann dissented in part. He argued that friend and content suggestions are Facebook's own messages, and that the legislative history aimed to protect moderation, not engagement-driven matchmaking.</p>
+          </article>
+          <article class="reading" id="s4-r4">
+            <h4><em>Anderson v. TikTok</em>, 116 F.4th 180 (3d Cir. 2024)</h4>
+            <p>A 10-year-old died attempting the "Blackout Challenge" after TikTok's For You Page algorithm served her the videos. Relying on <em>Moody v. NetChoice</em> (2024), which treats platform curation as the platform's own First Amendment expression, the Third Circuit held that TikTok's algorithmic recommendations are its own first-party speech. Section 230 therefore does not bar the claims. Judge Matey's concurrence would go further, limiting § 230 to distributor-style hosting and criticizing "casual indifference" to the harm.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s4-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Publisher immunity (§ 230(c)(1))</span><span class="dr">No interactive computer service may be treated as the publisher or speaker of another's content.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s4-r1"><em>Zeran v. AOL</em></a> <span class="yr">(1997)</span><span class="ln">covers traditional editorial functions: publish, withdraw, alter</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s4-r2"><em>Barnes v. Yahoo!</em></a> <span class="yr">(2009)</span><span class="ln">three-part test; removing content is publishing</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Distributor (notice) liability</span><span class="dr">Whether a platform told about harmful content must act on it.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s4-r1"><em>Zeran v. AOL</em></a> <span class="yr">(1997)</span><span class="ln">no liability even after notice</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Claims outside the publisher role</span><span class="dr">Liability based on a platform's own promises or conduct, rather than its publishing, falls outside § 230.</span></th><td><ol class="lin"><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s4-r2"><em>Barnes v. Yahoo!</em></a> <span class="yr">(2009)</span><span class="ln">promissory estoppel claim survives</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Algorithmic recommendations</span><span class="dr">Whether recommending and arranging content is protected publishing or the platform's own speech.</span></th><td><ol class="lin"><li><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="lt"><a href="#s4-r3"><em>Force v. Facebook</em></a> <span class="yr">(2019)</span><span class="ln">recommendations are publishing; Katzmann dissents in part</span></span></li><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s4-r4"><em>Anderson v. TikTok</em></a> <span class="yr">(2024)</span><span class="ln">after <em>Moody</em>, the algorithm is TikTok's own speech</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>Stratton Oakmont v. Prodigy</em> (1995); <em>Twitter v. Taamneh</em> (2023); <em>Moody v. NetChoice</em> (2024); Justice Thomas's statements in <em>Malwarebytes</em> and <em>Doe v. Snap</em>.</p></div></div>
+        <div class="sec" id="s4-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s4-k1"><h4>Does "publisher" include distributor?</h4><p><em>Zeran</em> read § 230 to bar liability even after a platform is told about harmful content. Justice Thomas argues the text only bars treating platforms as publishers, leaving notice-based distributor liability in place. The answer decides whether platforms must act on complaints.</p></article>
+        <article class="idea" id="s4-k2"><h4>Are algorithms the platform's own speech?</h4><p><em>Force</em> treated recommendations as protected publishing. <em>Anderson</em>, relying on <em>Moody v. NetChoice</em>, held they are the platform's own speech. The tension is that platforms claim First Amendment protection for their curation while also arguing, under § 230, that the content is not theirs.</p></article>
+        <article class="idea" id="s4-k3"><h4>Who speaks when an AI answers?</h4><p>Most commentators say a model's output is the company's own content, outside § 230. Others argue outputs are assembled from third-party material. The answer affects defamation, product liability and publisher claims against AI systems.</p></article>
+        <article class="idea" id="s4-k4"><h4>Repeal, carve-outs or a duty of care?</h4><p>Reform options include repeal, targeted carve-outs like FOSTA (2018), and conditioning immunity on reasonable moderation. For publishers, § 230 gives platforms an advantage: publishers are liable for what they print, platforms are not.</p></article>
+        </div></div>
+        <div class="sec" id="s4-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Jeff Kosseff, <em>The Twenty-Six Words That Created the Internet</em> (Cornell Univ. Press 2019)</p><p class="fsum">A history of § 230 from <em>Stratton Oakmont</em> to today's platforms.</p><ul class="fkey"><li>Congress wanted to encourage moderation and the growth of online services.</li><li><em>Zeran</em>'s broad reading shaped the modern internet.</li><li>Reform must weigh the costs to user speech.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s4-k1">Does "publisher" include distributor?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Kosseff+The+Twenty-Six+Words+That+Created+the+Internet" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Danielle Keats Citron &amp; Benjamin Wittes, "The Internet Will Not Break: Denying Bad Samaritans § 230 Immunity," 86 Fordham L. Rev. 401 (2017)</p><p class="fsum">Proposes keeping § 230 immunity only for platforms that take reasonable steps to address unlawful content.</p><ul class="fkey"><li>Broad immunity protects "bad Samaritans" that profit from abuse.</li><li>A reasonableness condition would preserve protection for good-faith moderators.</li><li>Online services would adapt without collapsing.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s4-k4">Repeal, carve-outs or a duty of care?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Citron+Wittes+The+Internet+Will+Not+Break+Denying+Bad+Samaritans" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Eric Goldman, "Why Section 230 Is Better Than the First Amendment," 95 Notre Dame L. Rev. Reflection 33 (2019)</p><p class="fsum">Argues § 230 protects online speech more effectively than the First Amendment alone.</p><ul class="fkey"><li>It lets defendants win early and avoid costly litigation.</li><li>It covers claims, such as negligence, the First Amendment may not reach.</li><li>It protects moderation decisions both substantively and procedurally.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s4-k2">Are algorithms the platform's own speech?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Goldman+Why+Section+230+Is+Better+Than+the+First+Amendment" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Peter Henderson, Tatsunori Hashimoto &amp; Mark Lemley, "Where's the Liability in Harmful AI Speech?," 3 J. Free Speech L. 589 (2023)</p><p class="fsum">Analyzes how existing law, including § 230, applies to harmful outputs of generative AI.</p><ul class="fkey"><li>§ 230 likely does not protect content a model generates itself.</li><li>Defamation and other speech-related claims raise unsettled First Amendment questions.</li><li>Design choices made by developers will shape their exposure.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s4-k3">Who speaks when an AI answers?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Henderson+Hashimoto+Lemley+Where%27s+the+Liability+in+Harmful+AI+Speech" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 5 -->
+      <section class="session" id="s5">
+        <p class="eyebrow">Session 5 · Unit III</p>
+        <h2>Antitrust law and its application to platforms</h2>
+        <div class="sec" id="s5-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">Can antitrust law, built around consumer prices, reach the power of free platforms?</p><p>If copyright cannot stop freeriding, antitrust might, by attacking the platform power that lets aggregators set terms for publishers. This session covers the Sherman Act framework for single-firm conduct. It traces how the Chicago School narrowed that framework from the 1970s on. It then asks whether the doctrine can handle platforms marked by network effects, multi-sided markets and below-cost growth strategies.</p></div>
+        <div class="sec" id="s5-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s5-r1">
+            <h4>Lina M. Khan, "Amazon's Antitrust Paradox," 126 Yale L.J. 710 (2017)</h4>
+            <p>Khan argues that the consumer welfare standard, focused on short-term prices, cannot capture the harms of platforms like Amazon. Amazon gave up profits for years to gain scale. It used that scale and its control of the marketplace to favor its own products and use rivals' data, building power that low prices hide. Khan proposes reviving predatory pricing and vertical integration scrutiny, or regulating dominant platforms like public utilities. The course uses Amazon as a case study in platform phases, from matchmaking to monetization.</p>
+          </article>
+          <article class="reading" id="s5-r2">
+            <h4>Erik Hovenkamp, "The Antitrust Duty to Deal in the Age of Big Tech," 131 Yale L.J. 1483 (2022)</h4>
+            <p>Hovenkamp argues that courts wrongly judge all unilateral refusals to deal under one near-impossible standard. He distinguishes two kinds. "Secondary" refusals condition dealing on the counterparty's relationship with a rival, as in <em>Lorain Journal</em>. They work like tying or exclusive dealing and should get the same scrutiny. "Primary" refusals simply decline to share an input with a rival. Forcing those can chill investment and deserves a stricter standard. Most meritorious platform cases are secondary refusals, so separating the two would allow meaningful scrutiny of dominant platforms.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s5-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Consumer welfare standard</span><span class="dr">Antitrust harm is measured mainly by effects on price and output.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator argues the current rule falls short.">Critiques</span><span class="lt"><a href="#s5-r1">Khan, "Amazon's Antitrust Paradox"</a> <span class="yr">(2017)</span><span class="ln">short-term prices hide power built through below-cost growth</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Predatory pricing and recoupment</span><span class="dr"><em>Brooke Group</em> requires below-cost pricing and a likelihood of recouping losses.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator argues the current rule falls short.">Critiques</span><span class="lt"><a href="#s5-r1">Khan, "Amazon's Antitrust Paradox"</a> <span class="yr">(2017)</span><span class="ln">platforms can recoup on another side of the market or through data</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Vertical integration</span><span class="dr">Integration is usually presumed efficient under Chicago School doctrine.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator proposes a new rule or approach.">Proposes</span><span class="lt"><a href="#s5-r1">Khan, "Amazon's Antitrust Paradox"</a> <span class="yr">(2017)</span><span class="ln">closer scrutiny, structural separation or utility-style regulation</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Refusals to deal</span><span class="dr">Unilateral refusals are lawful except in narrow cases such as <em>Aspen</em>; <em>Trinko</em> calls that the outer boundary.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator argues the current rule falls short.">Critiques</span><span class="lt"><a href="#s5-r2">Hovenkamp, "Duty to Deal"</a> <span class="yr">(2022)</span><span class="ln">evidentiary hurdles now defeat meritorious cases</span></span></li><li><span class="chip src" title="A commentator proposes a new rule or approach.">Proposes</span><span class="lt"><a href="#s5-r2">Hovenkamp, "Duty to Deal"</a> <span class="yr">(2022)</span><span class="ln">judge conditional (secondary) refusals like tying; keep a strict test for flat refusals</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>Lorain Journal</em> (1951); <em>Aspen Skiing</em> (1985); <em>Brooke Group</em> (1993); <em>U.S. v. Microsoft</em> (2001); <em>Trinko</em> (2004); <em>Ohio v. American Express</em> (2018).</p></div></div>
+        <div class="sec" id="s5-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s5-k1"><h4>Consumer welfare or market structure?</h4><p>Neo-Brandeisians like Khan argue that a focus on short-term prices misses platform power built through below-cost growth and control of infrastructure. Defenders of the consumer welfare standard, including Herbert Hovenkamp, argue it can reach those harms if applied properly, and that structural tests are vague.</p></article>
+        <article class="idea" id="s5-k2"><h4>Should dominant platforms have a duty to deal?</h4><p><em>Trinko</em> warns that forced sharing chills investment and makes courts into regulators. Erik Hovenkamp argues that most platform cases involve conditional refusals that should be judged like tying. Publishers want access and fair terms. Platforms want freedom to design their products.</p></article>
+        <article class="idea" id="s5-k3"><h4>What does <em>AmEx</em> require?</h4><p><em>AmEx</em> requires plaintiffs to net out effects on both sides of a transaction platform. Supporters say that reflects platform economics. Critics say it makes platform cases nearly impossible and should be confined to platforms that sell a single simultaneous transaction.</p></article>
+        <article class="idea" id="s5-k4"><h4>Can predatory pricing law reach platforms?</h4><p><em>Brooke Group</em> requires a likelihood of recoupment through later price increases. Platforms may recoup on a different side of the market or through data, which the test does not capture.</p></article>
+        </div></div>
+        <div class="sec" id="s5-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Robert H. Bork, <em>The Antitrust Paradox: A Policy at War with Itself</em> (Basic Books 1978)</p><p class="fsum">Bork's argument that antitrust's only legitimate goal is consumer welfare, understood as economic efficiency.</p><ul class="fkey"><li>Many antitrust doctrines protected competitors rather than competition.</li><li>Vertical restraints and most mergers are usually efficient.</li><li>Predatory pricing is rare and rarely rational.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s5-k1">Consumer welfare or market structure?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Bork+The+Antitrust+Paradox+A+Policy+at+War+with+Itself" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Herbert Hovenkamp, "Is Antitrust's Consumer Welfare Principle Imperiled?," 45 J. Corp. L. 65 (2019)</p><p class="fsum">Defends the consumer welfare standard against neo-Brandeisian critics.</p><ul class="fkey"><li>The standard aims to maximize output and is administrable by courts.</li><li>Proposed alternatives lack clear limiting principles.</li><li>The standard can account for harms to quality and innovation.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s5-k1">Consumer welfare or market structure?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Hovenkamp+Is+Antitrust%27s+Consumer+Welfare+Principle+Imperiled" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Tim Wu, <em>The Curse of Bigness: Antitrust in the New Gilded Age</em> (Columbia Global Reports 2018)</p><p class="fsum">Argues that excessive corporate concentration threatens democracy and calls for revived antitrust enforcement.</p><ul class="fkey"><li>Draws lessons from the Gilded Age and the rise of fascism.</li><li>The Chicago School drained antitrust of its political purpose.</li><li>Calls for tougher merger review and breakups of dominant firms.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s5-k1">Consumer welfare or market structure?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Wu+The+Curse+of+Bigness+Antitrust+in+the+New+Gilded+Age" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Lina M. Khan, "The Separation of Platforms and Commerce," 119 Colum. L. Rev. 973 (2019)</p><p class="fsum">Argues dominant platforms should be structurally separated from the businesses that compete on them.</p><ul class="fkey"><li>Platforms that host and compete with dependent businesses face built-in conflicts of interest.</li><li>Those conflicts enable self-preferencing and misuse of rivals' data.</li><li>Draws on historical separations in railroads, banking and telecommunications.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s5-k2">Should dominant platforms have a duty to deal?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Khan+The+Separation+of+Platforms+and+Commerce" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Jean-Charles Rochet &amp; Jean Tirole, "Platform Competition in Two-Sided Markets," 1 J. Eur. Econ. Ass'n 990 (2003)</p><p class="fsum">The founding economics paper on two-sided platforms.</p><ul class="fkey"><li>Platforms choose a price structure across sides to bring both on board.</li><li>One side is often subsidized by the other.</li><li>Multi-homing shapes how intensely platforms compete.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s5-k3">What does <em>AmEx</em> require?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Rochet+Tirole+Platform+Competition+in+Two-Sided+Markets" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Stigler Committee on Digital Platforms, <em>Final Report</em> (Univ. of Chicago Booth School of Business 2019)</p><p class="fsum">A University of Chicago report on digital platforms' market power and effects on privacy, media and politics.</p><ul class="fkey"><li>Network effects and data give platforms durable market power.</li><li>Recommends a specialized digital regulator.</li><li>Supports interoperability and data portability to lower entry barriers.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s5-k2">Should dominant platforms have a duty to deal?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Stigler+Committee+on+Digital+Platforms+Final+Report+2019" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 6 -->
+      <section class="session" id="s6">
+        <p class="eyebrow">Session 6 · Unit III</p>
+        <h2>EU vs. U.S. competition law: the Amazon e-book case study</h2>
+        <div class="sec" id="s6-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">How differently do the EU and the U.S. treat a dominant platform's contract terms?</p><p>Amazon's e-book business is a test case for how the U.S. and the EU treat the same platform conduct. In the U.S., publishers who tried to counter Amazon's pricing power were themselves found to be cartel members. In Europe, regulators went after Amazon's contract terms instead. This session uses "most favored nation" (MFN) or parity clauses to compare the two systems and to show how platforms use contract terms in their standard-setting phase.</p></div>
+        <div class="sec" id="s6-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s6-r1">
+            <h4>European Commission, Case AT.40153, E-book MFNs and related matters (Amazon), Decision of May 4, 2017</h4>
+            <p>The Commission found preliminarily that Amazon was dominant in English- and German-language e-book retail. It found that Amazon's parity clauses may have abused that position. The clauses required publishers to offer Amazon terms matching or beating those given to rivals on business models, catalog selection, retail price, promotions and wholesale price, and to notify Amazon of better terms elsewhere. That discouraged rivals from offering new models and made entry harder. Amazon did not admit a violation. It committed for five years not to enforce or introduce the clauses, and let publishers end contracts tied to its "discount pool" provision.</p>
+            <span class="note">This decision is the file named "Baker &amp; Morton Article.pdf"</span>
+          </article>
+          <article class="reading" id="s6-r2">
+            <h4>Jonathan B. Baker &amp; Fiona Scott Morton, "Antitrust Enforcement Against Platform MFNs," 127 Yale L.J. 2176 (2018)</h4>
+            <p>The authors argue that platform MFNs generally harm competition. They work collusively, by making discounts costly and softening price competition, and exclusionarily, by stopping new low-commission platforms from winning share through lower prices. They can be justified only where freeriding concerns are especially strong. Europe has repeatedly challenged MFNs used by online travel agents and Amazon, while the U.S. has largely ignored them. The authors argue U.S. enforcers should follow Europe, and show how cases could fit existing Sherman Act § 1 and § 2 precedent.</p>
+            <span class="note">Scanned file named "EU Decision on E-book MFNs.pdf"; read via OCR</span>
+          </article>
+        </div></div>
+        <div class="sec" id="s6-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Platform MFNs (parity clauses)</span><span class="dr">Suppliers must give the platform terms at least as good as anywhere else.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s6-r1">EC Amazon e-book decision</a> <span class="yr">(2017)</span><span class="ln">Amazon's parity clauses may abuse dominance</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s6-r2">Baker &amp; Scott Morton</a> <span class="yr">(2018)</span><span class="ln">MFNs generally harm competition, both collusively and by excluding entrants</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Abuse of dominance (Art. 102 TFEU)</span><span class="dr">Dominant firms have a "special responsibility" not to impair competition.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s6-r1">EC Amazon e-book decision</a> <span class="yr">(2017)</span><span class="ln">Amazon is dominant in English- and German-language e-book retail</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Commitments decisions (Art. 9)</span><span class="dr">The Commission can make commitments binding without finding a violation.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s6-r1">EC Amazon e-book decision</a> <span class="yr">(2017)</span><span class="ln">five-year commitments to drop the clauses</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">U.S. enforcement against MFNs</span><span class="dr">U.S. law reaches agreements under Sherman Act § 1 and monopolization under § 2.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator proposes a new rule or approach.">Proposes</span><span class="lt"><a href="#s6-r2">Baker &amp; Scott Morton</a> <span class="yr">(2018)</span><span class="ln">how MFN cases could fit existing § 1 and § 2 precedent</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>U.S. v. Apple</em> (S.D.N.Y. 2013; 2d Cir. 2015); <em>FTC v. Amazon</em> (motion to dismiss denied, 2024); Digital Markets Act art. 5(3).</p></div></div>
+        <div class="sec" id="s6-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s6-k1"><h4>Did <em>U.S. v. Apple</em> punish the wrong party?</h4><p>Critics argue enforcers attacked publishers who were resisting a dominant retailer's below-cost pricing, while leaving Amazon alone. Defenders say horizontal price-fixing is per se illegal whatever the motive, and the publishers had other lawful options.</p></article>
+        <article class="idea" id="s6-k2"><h4>Are platform MFNs efficient or harmful?</h4><p>Platforms say parity clauses stop sellers from using the platform for discovery and then selling cheaper elsewhere. Baker and Scott Morton say MFNs keep prices high and deter low-commission entrants. Narrow MFNs, which only cover the seller's own site, are the usual compromise.</p></article>
+        <article class="idea" id="s6-k3"><h4>Europe's model or America's?</h4><p>The EU gives dominant firms a "special responsibility" and now regulates gatekeepers in advance. The Digital Markets Act bans their parity clauses outright. U.S. law relies on case-by-case litigation and worries more about the cost of wrongly condemning business practices.</p></article>
+        <article class="idea" id="s6-k4"><h4>Commitments or precedent?</h4><p>Commitments decisions end conduct quickly, but they produce no finding of a violation and no precedent. That leaves later cases with little guidance.</p></article>
+        </div></div>
+        <div class="sec" id="s6-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Jonathan B. Baker &amp; Judith A. Chevalier, "The Competitive Consequences of Most-Favored-Nation Provisions," 27 Antitrust 20 (2013)</p><p class="fsum">A survey of the economics of most-favored-nation clauses.</p><ul class="fkey"><li>MFNs can soften competition by making discounts costly.</li><li>They can exclude rivals and entrants.</li><li>Their efficiency benefits are narrower than often claimed.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s6-k2">Are platform MFNs efficient or harmful?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Baker+Chevalier+The+Competitive+Consequences+of+Most-Favored-Nation+Provisions" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Andre Boik &amp; Kenneth S. Corts, "The Effects of Platform Most-Favored-Nation Clauses on Competition and Entry," 59 J.L. &amp; Econ. 105 (2016)</p><p class="fsum">An economic model of how platform MFNs affect fees, prices and entry.</p><ul class="fkey"><li>Platform MFNs raise platform fees and retail prices.</li><li>They can deter entry by lower-fee platforms.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s6-k2">Are platform MFNs efficient or harmful?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Boik+Corts+The+Effects+of+Platform+Most-Favored-Nation+Clauses+on+Competition+and+Entry" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Frank H. Easterbrook, "The Limits of Antitrust," 63 Tex. L. Rev. 1 (1984)</p><p class="fsum">Easterbrook's argument that courts should err toward allowing business practices because wrongly condemning them costs more than wrongly allowing them.</p><ul class="fkey"><li>Markets tend to correct monopoly over time.</li><li>Judicial errors that condemn efficient practices persist.</li><li>Proposes filters to screen out weak claims early.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s6-k3">Europe's model or America's?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Easterbrook+The+Limits+of+Antitrust" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Anu Bradford, <em>Digital Empires: The Global Battle to Regulate Technology</em> (Oxford Univ. Press 2023)</p><p class="fsum">Compares the U.S. market-driven, Chinese state-driven and EU rights-driven models of regulating technology.</p><ul class="fkey"><li>Three regulatory "empires" compete to shape the global digital economy.</li><li>The EU exports its rules through the "Brussels effect."</li><li>U.S. reliance on markets is giving way to more regulation.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s6-k3">Europe's model or America's?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Bradford+Digital+Empires+The+Global+Battle+to+Regulate+Technology" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Regulation (EU) 2022/1925 (Digital Markets Act), art. 5(3)</p><p class="fsum">Bars designated gatekeepers from preventing business users from offering different prices or terms through other channels.</p><ul class="fkey"><li>Bans parity clauses for gatekeepers outright.</li><li>Applies in advance, without proof of harm in each case.</li><li>The Commission enforces it with fines of up to 10% of worldwide turnover.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s6-k3">Europe's model or America's?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Regulation+2022%2F1925+Digital+Markets+Act+parity+clauses" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 7 -->
+      <section class="session" id="s7">
+        <p class="eyebrow">Session 7 · Unit III</p>
+        <h2>Platform capture and exclusion</h2>
+        <div class="sec" id="s7-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">When does paying to be everyone's default become illegal exclusion?</p><p>A dominant platform can lock in its position by paying to be the default everywhere, so rivals never reach the scale they need to compete. This session studies exclusive dealing under § 2, from <em>U.S. v. Microsoft</em> to the DOJ's search case against Google. It then asks what remedies can actually restore competition, including whether publishers should be able to opt out of having their content used in Google's AI features.</p></div>
+        <div class="sec" id="s7-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s7-r1">
+            <h4><em>United States v. Google LLC</em>, 747 F. Supp. 3d 1 (D.D.C. Aug. 5, 2024) (Mehta, J.) (search liability decision, excerpt)</h4>
+            <p>The court held that Google is a monopolist in general search services and general search text ads. It maintained those monopolies unlawfully through exclusive default agreements with Apple, Android device makers and wireless carriers, paying more than $26 billion in 2021. The agreements foreclosed a substantial share of the market and denied rivals like Bing the scale they needed. They also reduced Google's incentive to innovate and let it raise text ad prices without losing business. The court rejected Google's procompetitive justifications. It found no liability for Google's refusal to give Microsoft Ads equal features in SA360, Google's ad-buying tool, because that was a lawful refusal to deal.</p>
+          </article>
+          <article class="reading" id="s7-r2">
+            <h4><em>Valassis Communications v. News Corp.</em>, 2019 U.S. Dist. LEXIS 27770 (S.D.N.Y. Feb. 21, 2019) (Castel, J.)</h4>
+            <p>Valassis, the only rival to News America Marketing in in-store promotions such as shelf coupons and signs, alleged monopolization through exclusive dealing. News used long-term exclusive retailer contracts (averaging 4.5 years), staggered expirations, early renewals ("Project Preempt") and exclusive deals with consumer-goods makers. Valassis argued these kept it from reaching the critical mass of stores it needed, and it left the market. The court granted News summary judgment on the predatory bidding theory but denied it on the monopolization and exclusive dealing claims. The case shows platform-style exclusion in a traditional market, and it involves the course instructor's own company.</p>
+            <span class="note">Scanned PDF; read via OCR</span>
+          </article>
+        </div></div>
+        <div class="sec" id="s7-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Exclusive dealing (§ 2)</span><span class="dr">Exclusive deals are unlawful when they foreclose a substantial share of distribution (<em>Microsoft</em> framework).</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s7-r2"><em>Valassis v. News Corp</em></a> <span class="yr">(2019)</span><span class="ln">exclusivity claims survive summary judgment</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s7-r1"><em>U.S. v. Google</em> (search)</a> <span class="yr">(2024)</span><span class="ln">default agreements foreclose a substantial share of search</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Critical mass and scale</span><span class="dr">A rival needs enough scale or network size to compete.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s7-r2"><em>Valassis v. News Corp</em></a> <span class="yr">(2019)</span><span class="ln">staggered long-term contracts kept Valassis below critical mass</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s7-r1"><em>U.S. v. Google</em> (search)</a> <span class="yr">(2024)</span><span class="ln">defaults deny rivals the queries they need to improve</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">"Competition for the contract"</span><span class="dr">Whether rivals' ability to bid for exclusive deals cures foreclosure.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s7-r1"><em>U.S. v. Google</em> (search)</a> <span class="yr">(2024)</span><span class="ln">no rival could match Google's payments</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Predatory bidding</span><span class="dr">Overpaying for inputs to exclude rivals, judged like predatory pricing.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s7-r2"><em>Valassis v. News Corp</em></a> <span class="yr">(2019)</span><span class="ln">summary judgment for News on this theory</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Refusal to deal</span><span class="dr">Unilateral refusals to cooperate with rivals are generally lawful.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s7-r1"><em>U.S. v. Google</em> (search)</a> <span class="yr">(2024)</span><span class="ln">no liability for denying Microsoft Ads feature parity in SA360</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>U.S. v. Microsoft</em> (2001); <em>Dial v. News Corp</em> (2016); <em>U.S. v. Google</em> search remedies decision (Sept. 2025).</p></div></div>
+        <div class="sec" id="s7-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s7-k1"><h4>Is paying for defaults competition?</h4><p>Google argued that users choose it because it is the best search engine and that rivals could bid for default slots. The court found defaults sticky and Google's payments impossible to match, so the bidding was not real competition. The debate is whether defaults matter when switching takes a few taps.</p></article>
+        <article class="idea" id="s7-k2"><h4>Structural or behavioral remedies?</h4><p>DOJ asked for a Chrome divestiture. Judge Mehta chose behavioral remedies and pointed to new competition from generative AI. Critics say that repeats the <em>Microsoft</em> outcome, where the monopoly faded through new technology rather than through the remedy.</p></article>
+        <article class="idea" id="s7-k3"><h4>Is data an essential input?</h4><p>Search quality depends on query and click data, so data-sharing remedies aim to give rivals scale. They raise privacy concerns and questions about whether shared data can make up for years of exclusion.</p></article>
+        <article class="idea" id="s7-k4"><h4>Should antitrust remedies protect publishers?</h4><p>DOJ proposed letting publishers opt out of having their content used in Google's AI features without losing search placement. The court rejected it. The question is whether publishers' leverage problem belongs in antitrust or copyright.</p></article>
+        </div></div>
+        <div class="sec" id="s7-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Thomas G. Krattenmaker &amp; Steven C. Salop, "Anticompetitive Exclusion: Raising Rivals' Costs to Achieve Power over Price," 96 Yale L.J. 209 (1986)</p><p class="fsum">A framework for when exclusionary conduct harms competition by raising rivals' costs.</p><ul class="fkey"><li>Exclusion works by giving a firm control over inputs rivals need.</li><li>A two-step test asks whether rivals' costs rise and whether that confers power over price.</li><li>Exclusive dealing is a leading example.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s7-k1">Is paying for defaults competition?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Krattenmaker+Salop+Anticompetitive+Exclusion+Raising+Rivals%27+Costs+to+Achieve+Power+over+Price" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Steven C. Salop &amp; David T. Scheffman, "Raising Rivals' Costs," 73 Am. Econ. Rev. 267 (1983)</p><p class="fsum">A short economics paper showing that raising rivals' costs can be a profitable strategy.</p><ul class="fkey"><li>It can be cheaper and more credible than predatory pricing.</li><li>It works when it raises rivals' costs more than one's own.</li><li>Consumers can be harmed even without rivals leaving the market.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s7-k1">Is paying for defaults competition?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Salop+Scheffman+Raising+Rivals%27+Costs" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Fiona M. Scott Morton &amp; David C. Dinielli, "Roadmap for an Antitrust Case Against Google" (Omidyar Network 2020)</p><p class="fsum">Lays out a legal theory for a monopolization case against Google's search and search advertising businesses.</p><ul class="fkey"><li>Default deals and data advantages maintain Google's monopoly.</li><li>Harm falls on users, advertisers and rivals.</li><li>Discusses possible remedies.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s7-k2">Structural or behavioral remedies?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Scott+Morton+Dinielli+Roadmap+for+an+Antitrust+Case+Against+Google" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Maurice E. Stucke &amp; Allen P. Grunes, <em>Big Data and Competition Policy</em> (Oxford Univ. Press 2016)</p><p class="fsum">Argues that big data can create market power and antitrust harm.</p><ul class="fkey"><li>Data-driven network effects entrench incumbents.</li><li>Harm can take the form of lower privacy and quality, not just higher prices.</li><li>Enforcers should account for data in merger review.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s7-k3">Is data an essential input?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Stucke+Grunes+Big+Data+and+Competition+Policy" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 8 -->
+      <section class="session" id="s8">
+        <p class="eyebrow">Session 8 · Unit III</p>
+        <h2>Platform annexation and self-preferencing</h2>
+        <div class="sec" id="s8-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">When does a platform that runs every side of a market abuse that position?</p><p>Publishers sell their ad space through "ad tech" intermediaries, and Google owns the dominant tools on every layer. This session uses the DOJ's ad tech case against Google to study how a platform can tie its products together, favor its own services and defeat tools that let customers use rival platforms. It connects to Session 1: Google's take of each ad dollar comes straight out of publishers' revenue.</p></div>
+        <div class="sec" id="s8-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s8-r1">
+            <h4><em>United States v. Google LLC</em> (E.D. Va. Apr. 17, 2025) (Brinkema, J.) (ad tech liability decision)</h4>
+            <p>After a bench trial, the court found Google willfully monopolized two markets: publisher ad servers (DFP) and ad exchanges (AdX). It also found Google unlawfully tied DFP and AdX in violation of § 1 and § 2. The government failed to prove a separate advertiser ad network market. Conduct the court cited includes giving AdX "first look" and "last look" at publisher inventory and Unified Pricing Rules that limited publishers' ability to set different floors for rival exchanges. The court rejected Google's refusal-to-deal and product-design defenses. It found harm to publishers, who received less revenue, and to the open web.</p>
+          </article>
+          <article class="reading" id="s8-r2">
+            <h4>Susan Athey &amp; Fiona Scott Morton, "Platform Annexation," 84 Antitrust L.J. 677 (2022)</h4>
+            <p>When buyers and sellers multi-home, platform competition keeps "take rates" (the platform's cut) low. The authors define annexation as a dominant platform acquiring, copying or degrading the tools that make multi-homing possible, such as comparison or aggregation services and, in ad tech, header bidding. The tactics can look like innovation or ordinary product design, so courts may miss them. The authors propose closer scrutiny of acquisitions and conduct that weaken multi-homing.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s8-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Multi-homing and platform annexation</span><span class="dr">Competition stays healthy when customers can use several platforms; capturing the tools that allow it raises take rates.</span></th><td><ol class="lin"><li><span class="chip src" title="A commentator proposes a new rule or approach.">Proposes</span><span class="lt"><a href="#s8-r2">Athey &amp; Scott Morton</a> <span class="yr">(2022)</span><span class="ln">defines annexation and calls for closer scrutiny</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s8-r1"><em>U.S. v. Google</em> (ad tech)</a> <span class="yr">(2025)</span><span class="ln">Unified Pricing Rules limited publishers' use of rival exchanges</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Market definition after <em>AmEx</em></span><span class="dr">Two-sided transaction platforms may need to be treated as one market.</span></th><td><ol class="lin"><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s8-r1"><em>U.S. v. Google</em> (ad tech)</a> <span class="yr">(2025)</span><span class="ln">publisher ad servers and ad exchanges are separate markets</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Tying</span><span class="dr">Conditioning one product on another is per se unlawful when the <em>Jefferson Parish</em> elements are met.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s8-r1"><em>U.S. v. Google</em> (ad tech)</a> <span class="yr">(2025)</span><span class="ln">the DFP–AdX tie violates §§ 1 and 2</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Refusal-to-deal and product-design defenses</span><span class="dr"><em>Trinko</em> and design deference shield some unilateral conduct.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s8-r1"><em>U.S. v. Google</em> (ad tech)</a> <span class="yr">(2025)</span><span class="ln">neither defense covers imposing exclusionary terms</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>Jefferson Parish</em> (1984); <em>U.S. v. Microsoft</em> (2001); <em>Trinko</em> (2004); <em>Ohio v. American Express</em> (2018); ad tech remedies trial (Sept. 2025).</p></div></div>
+        <div class="sec" id="s8-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s8-k1"><h4>Self-preferencing: integration or abuse?</h4><p>The EU condemned Google for favoring its own shopping service, a decision the Court of Justice upheld in 2024. U.S. law has no general self-preferencing offense. The ad tech court reached similar conduct through tying and monopolization instead.</p></article>
+        <article class="idea" id="s8-k2"><h4>Can one company run every side of the auction?</h4><p>Google represented buyers, represented sellers and ran the exchange between them. Some argue only structural separation removes that conflict. Others favor conduct rules and transparency.</p></article>
+        <article class="idea" id="s8-k3"><h4>Will divesting AdX work?</h4><p>Supporters say divestiture removes the core conflict. Google argues it is technically unworkable and would harm customers. The <em>Microsoft</em> breakup reversal hangs over the debate.</p></article>
+        <article class="idea" id="s8-k4"><h4>Where does product design end?</h4><p>Athey and Scott Morton want scrutiny of conduct that undermines multi-homing. Critics worry that treats ordinary product improvements as exclusion and chills innovation.</p></article>
+        </div></div>
+        <div class="sec" id="s8-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Dina Srinivasan, "Why Google Dominates Advertising Markets," 24 Stan. Tech. L. Rev. 55 (2020)</p><p class="fsum">Explains how Google's position on every side of the ad tech stack lets it profit from conflicts of interest.</p><ul class="fkey"><li>Compares ad tech to securities markets.</li><li>Google acts as broker for both buyers and sellers and runs the exchange.</li><li>Recommends securities-style rules such as separation and best execution.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s8-k2">Can one company run every side of the auction?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Srinivasan+Why+Google+Dominates+Advertising+Markets" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite"><em>Google and Alphabet v. Commission</em> (Google Shopping), Case C-48/22 P (CJEU Sept. 10, 2024)</p><p class="fsum">The EU's top court upheld the Commission's €2.42 billion fine against Google for favoring its own shopping service in search results.</p><ul class="fkey"><li>Self-preferencing by a dominant firm can be an abuse.</li><li>Showing the service is indispensable to rivals is not required.</li><li>Confirms dominant firms' "special responsibility."</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s8-k1">Self-preferencing: integration or abuse?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Google+Shopping+C-48%2F22+P+judgment" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Pablo Ibáñez Colomo, "Self-Preferencing: Yet Another Epithet in Need of Limiting Principles," 43 World Competition 417 (2020)</p><p class="fsum">Argues "self-preferencing" lacks a coherent legal test.</p><ul class="fkey"><li>Not every case of favoring one's own products is abusive.</li><li>Existing doctrines, such as refusal to deal and tying, should supply the limits.</li><li>Warns against a broad prohibition.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s8-k1">Self-preferencing: integration or abuse?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Ibanez+Colomo+Self-Preferencing+Yet+Another+Epithet+in+Need+of+Limiting+Principles" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Competition and Markets Authority (UK), <em>Online Platforms and Digital Advertising: Market Study Final Report</em> (2020)</p><p class="fsum">The UK competition authority's study of Google and Facebook in search and social media advertising.</p><ul class="fkey"><li>Both firms hold entrenched positions.</li><li>Ad tech suffers from conflicts of interest and opacity.</li><li>Recommended a new pro-competition regime and a Digital Markets Unit.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s8-k2">Can one company run every side of the auction?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=CMA+Online+Platforms+and+Digital+Advertising+Market+Study+Final+Report" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Lina M. Khan, "Amazon's Antitrust Paradox," 126 Yale L.J. 710 (2017) (on structural separation and regulation of dominant platforms)</p><p class="fsum">Khan's article from Session 5, relevant here for its structural remedies.</p><ul class="fkey"><li>Proposes separating platforms from the businesses that depend on them.</li><li>Offers regulation as a public utility as an alternative.</li><li>Separation targets conflicts of interest directly.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s8-k3">Will divesting AdX work?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Khan+Amazon%27s+Antitrust+Paradox" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 9 -->
+      <section class="session" id="s9">
+        <p class="eyebrow">Session 9 · Unit IV</p>
+        <h2>Fair use for news and information services</h2>
+        <div class="sec" id="s9-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">When is repackaging news a new use, and when is it a substitute for the original?</p><p>Before generative AI, courts had already decided several cases about services that copy news to deliver it in a new, more convenient form: clipping services, broadcast monitoring tools and English-language abstracts of foreign articles. This session reads those cases as the foundation for AI disputes. It asks when repackaging news is transformative and when it is just a substitute. It also introduces the first AI training ruling, <em>Thomson Reuters v. Ross</em>, and News Corp's position on AI.</p></div>
+        <div class="sec" id="s9-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s9-r1">
+            <h4><em>Associated Press v. Meltwater U.S. Holdings</em>, 931 F. Supp. 2d 537 (S.D.N.Y. 2013) (Cote, J.)</h4>
+            <p>Meltwater scraped online news and sent subscribers keyword-based reports with each article's headline, opening sentence and other excerpts. The court rejected Meltwater's argument that it was just a search engine, finding it was a subscription news-clipping service. The use was not transformative because it simply delivered AP's expression to paying customers. Meltwater often took the article's most important passage, its "lede." It also competed directly with AP's licensed news-monitoring market. Fair use failed on every factor that mattered.</p>
+          </article>
+          <article class="reading" id="s9-r2">
+            <h4><em>Fox News Network v. TVEyes</em>, 883 F.3d 169 (2d Cir. 2018)</h4>
+            <p>TVEyes recorded nearly all TV broadcasts and let clients paying $500 a month search transcripts and watch, archive and email ten-minute clips. The Second Circuit held the "Watch" function was not fair use. It was somewhat transformative because it helps users find and view relevant content efficiently. But it gave clients virtually all the Fox content they wanted, which deprived Fox of licensing revenue. Factors three and four strongly favored Fox. The searchable text database was not challenged on appeal. Judge Kaplan concurred, questioning whether the transformative-use analysis was needed.</p>
+            <span class="note">Scanned PDF; read via OCR</span>
+          </article>
+          <article class="reading" id="s9-r3">
+            <h4><em>Nihon Keizai Shimbun v. Comline Business Data</em>, 166 F.3d 65 (2d Cir. 1999)</h4>
+            <p>Comline sold English-language abstracts of articles from Japan's leading business paper, the Nikkei. The court applied the "more discerning observer" test, setting aside the uncopyrightable facts. It found 20 of 22 abstracts infringing because they tracked the articles' structure, sequence and much of their expression. They were essentially translations of most of the article. Two abstracts that used only facts in new words did not infringe. Fair use failed. The court affirmed the attorney's fees award but vacated the trademark injunction and remanded the statutory damages. <em>Nihon</em> is now central to AI output and "abridgment" claims.</p>
+            <span class="note">Scanned PDF; read via OCR</span>
+          </article>
+          <article class="reading" id="s9-r4">
+            <h4><em>Thomson Reuters v. Ross Intelligence</em>, No. 25-2153 (3d Cir. Sept. 29, 2026)</h4>
+            <p>Ross used 2,243 Westlaw headnotes, rewritten as "Bulk Memos," to train a non-generative AI legal research tool meant to replace Westlaw. The Third Circuit affirmed Judge Bibas's 2025 partial summary judgment for Thomson Reuters. The headnotes are original under <em>Feist</em>, because editors chose which points of law to include and how to word them. Ross's use was not fair. Factor one weighed against Ross because the use was commercial and served the same purpose as Westlaw. <em>Google Books</em> was distinguished because Ross's tool replaces Westlaw rather than leading users to it. The intermediate copying cases (<em>Sega</em>, <em>Connectix</em>, <em>Google v. Oracle</em>) were distinguished because copying was not necessary: Ross could have used the public opinions themselves, and "ease is not a justification for copying." Factor four weighed against Ross because of harm to Westlaw and to a "rapidly developing" market for licensing AI training data. The court found Ross's public-access and national-security arguments unsupported.</p>
+          </article>
+          <article class="reading" id="s9-r5">
+            <h4>Comments of News Corp to the Copyright Office, Artificial Intelligence and Copyright (Oct. 30, 2023)</h4>
+            <p>News Corp argues that news is especially valuable LLM training data because it is high-quality, fact-checked and current, and that some developers license it (AP–OpenAI, BloombergGPT) while others simply scrape it. Copying content to build products that replace the original source is what copyright exists to prevent. News Corp opposes text-and-data-mining exceptions and mandatory licensing, and warns that dominant platforms can force publishers into "consent." It also argues that courts read § 301 preemption too broadly for aggregators and AI, which take from all publishers at once.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s9-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Transformative purpose vs. substitution</span><span class="dr">A new purpose favors fair use; delivering the original in its place does not.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s9-r1"><em>AP v. Meltwater</em></a> <span class="yr">(2013)</span><span class="ln">a clipping service is not a search engine</span></span></li><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s9-r2"><em>Fox News v. TVEyes</em></a> <span class="yr">(2018)</span><span class="ln">"somewhat" transformative, but it still substitutes</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s9-r4"><em>Thomson Reuters v. Ross</em></a> <span class="yr">(3d Cir. 2026)</span><span class="ln">same purpose as Westlaw; <em>Google Books</em> distinguished</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Abstracts and substantial similarity</span><span class="dr">A "more discerning observer" filters out facts; summaries that track the original's expression infringe.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s9-r3"><em>Nihon Keizai v. Comline</em></a> <span class="yr">(1999)</span><span class="ln">20 of 22 abstracts infringe; facts-only abstracts do not</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Intermediate copying</span><span class="dr">Copying needed to reach unprotected functional elements can be fair use.</span></th><td><ol class="lin"><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s9-r4"><em>Thomson Reuters v. Ross</em></a> <span class="yr">(3d Cir. 2026)</span><span class="ln">limited to necessary copying; "ease is not a justification"</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Licensing markets (factor four)</span><span class="dr">A lost licensing fee counts if the market is traditional, reasonable or likely to develop.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s9-r1"><em>AP v. Meltwater</em></a> <span class="yr">(2013)</span><span class="ln">harm to AP's licensing market</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s9-r2"><em>Fox News v. TVEyes</em></a> <span class="yr">(2018)</span><span class="ln">deprived Fox of licensing revenue</span></span></li><li><span class="chip src" title="A commentator or party argues a position on this point.">Argues</span><span class="lt"><a href="#s9-r5">News Corp to Copyright Office on AI</a> <span class="yr">(2023)</span><span class="ln">news is premium training data; opposes TDM exceptions</span></span></li><li><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="lt"><a href="#s9-r4"><em>Thomson Reuters v. Ross</em></a> <span class="yr">(3d Cir. 2026)</span><span class="ln">a developing market for AI training data counts</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Originality of editorial material</span><span class="dr">Selection and wording need only a "creative spark" under <em>Feist</em>.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s9-r4"><em>Thomson Reuters v. Ross</em></a> <span class="yr">(3d Cir. 2026)</span><span class="ln">Westlaw headnotes are original</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>Sega v. Accolade</em> (1992); <em>Sony v. Connectix</em> (2000); <em>Google v. Oracle</em> (2021); EU Digital Single Market Directive arts. 3–4 (text and data mining).</p></div></div>
+        <div class="sec" id="s9-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s9-k1"><h4>Is convenience transformative?</h4><p><em>TVEyes</em> called efficient access "somewhat" transformative but still found no fair use. Critics say making the same content easier to get is just redistribution. The answer matters for any service, AI included, that repackages existing work.</p></article>
+        <article class="idea" id="s9-k2"><h4>Where does summary end and abridgment begin?</h4><p><em>Nihon</em> found abstracts that tracked the original infringing. The CIR claims in the <em>NYT</em> case were dismissed because bullet-point summaries restated only facts. AI answers fall somewhere between the two.</p></article>
+        <article class="idea" id="s9-k3"><h4>How far does <em>Ross</em> reach?</h4><p><em>Ross</em> involved a non-generative tool built to compete directly with Westlaw. <em>Bartz</em> and <em>Kadrey</em> distinguished it for generative models whose outputs do not reproduce the training works. Publishers argue news AI is closer to <em>Ross</em>, because answer engines compete with the sources they copy.</p></article>
+        <article class="idea" id="s9-k4"><h4>Is there a market for training data?</h4><p>The Third Circuit in <em>Ross</em> found a "rapidly developing" market for licensing training data. Skeptics call that circular, since the market exists only if courts require licenses. The growing number of publisher deals with AI companies strengthens the publishers' argument.</p></article>
+        <article class="idea" id="s9-k5"><h4>Opt-in or opt-out?</h4><p>The EU allows text-and-data mining unless rights holders opt out, and Japan's exception is broader still. U.S. fair use has no such rule. News Corp argues for an opt-in system based on licensing.</p></article>
+        </div></div>
+        <div class="sec" id="s9-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Mark A. Lemley &amp; Bryan Casey, "Fair Learning," 99 Tex. L. Rev. 743 (2021)</p><p class="fsum">Argues training machine learning systems on copyrighted works should generally be fair use.</p><ul class="fkey"><li>Training uses works for their unprotected elements, such as facts and patterns.</li><li>Copyright should not stand in the way of learning.</li><li>Outputs that copy protected expression should be treated differently.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s9-k3">How far does <em>Ross</em> reach?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Lemley+Casey+Fair+Learning" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Benjamin L.W. Sobel, "Artificial Intelligence's Fair Use Crisis," 41 Colum. J.L. &amp; Arts 45 (2017)</p><p class="fsum">Argues AI training puts fair use in a bind.</p><ul class="fkey"><li>The "non-expressive use" defense weakens when models learn expressive features.</li><li>Either result, fair use or not, has troubling consequences.</li><li>AI outputs may substitute for human work in the market.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s9-k3">How far does <em>Ross</em> reach?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Sobel+Artificial+Intelligence%27s+Fair+Use+Crisis" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Matthew Sag, "Copyright Safety for Generative AI," 61 Hous. L. Rev. 295 (2023)</p><p class="fsum">Proposes practices to reduce copyright risk in generative AI, focusing on memorization.</p><ul class="fkey"><li>Training is generally a non-expressive use.</li><li>The problem arises when models memorize and reproduce works.</li><li>Recommends safeguards such as deduplication and output filtering.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s9-k2">Where does summary end and abridgment begin?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Sag+Copyright+Safety+for+Generative+AI" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">U.S. Copyright Office, <em>Copyright and Artificial Intelligence, Part 3: Generative AI Training</em> (pre-publication version, May 2025)</p><p class="fsum">The Copyright Office's report on whether training generative AI on copyrighted works is fair use.</p><ul class="fkey"><li>Some training is fair use and some is not; it depends on the facts.</li><li>Commercial uses that produce competing outputs weigh against fair use.</li><li>Discusses market dilution and recommends letting licensing markets develop.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s9-k4">Is there a market for training data?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Copyright+Office+Copyright+and+Artificial+Intelligence+Part+3+Generative+AI+Training" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Directive (EU) 2019/790 on Copyright in the Digital Single Market, arts. 3–4 (text and data mining)</p><p class="fsum">The EU's exceptions for text and data mining.</p><ul class="fkey"><li>Article 3 covers research organizations and cultural heritage institutions.</li><li>Article 4 covers anyone, unless rights holders opt out in machine-readable form.</li><li>The EU AI Act requires model providers to respect these opt-outs.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s9-k5">Opt-in or opt-out?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Directive+2019%2F790+text+and+data+mining+article+4" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 10 -->
+      <section class="session" id="s10">
+        <p class="eyebrow">Session 10 · Unit IV</p>
+        <h2>Challenges to the unauthorized use of content for LLM training</h2>
+        <div class="sec" id="s10-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">Is copying books and news to train AI models fair use?</p><p>Large language models are trained on huge volumes of copyrighted text, much of it copied without permission and some from pirate sites. This session examines the first major rulings on whether that training is infringement. It focuses on fair use and on the side claims authors and publishers have brought: DMCA, trademark, contributory infringement and misappropriation.</p></div>
+        <div class="sec" id="s10-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s10-r1">
+            <h4><em>Bartz v. Anthropic</em>, order on fair use (N.D. Cal. June 23, 2025) (Alsup, J.)</h4>
+            <p>Judge Alsup held that training Claude on books was fair use, calling it "exceedingly transformative," like a reader learning to write. Scanning purchased print books into digital form was also fair use, because each print copy was destroyed and the digital copy was not shared. But downloading millions of pirated books to build a permanent "central library" was not fair use, and that claim went to trial. Anthropic later agreed to a $1.5 billion class settlement.</p>
+          </article>
+          <article class="reading" id="s10-r2">
+            <h4><em>Kadrey v. Meta Platforms</em>, summary judgment opinion (N.D. Cal. June 25, 2025) (Chhabria, J.)</h4>
+            <p>Judge Chhabria granted Meta summary judgment on fair use for training Llama on 13 authors' books, but only because the plaintiffs offered no evidence of market harm. He reasoned that training is highly transformative, so plaintiffs must win decisively on factor four. He suggested "market dilution," meaning AI outputs flooding the market and competing with human works, could win in many cases, and noted news may be especially vulnerable. He rejected a licensing-market theory as circular and treated the downloads from pirate sites as relevant but not decisive. The court separately granted summary judgment for Meta on the DMCA claim.</p>
+          </article>
+          <article class="reading" id="s10-r3">
+            <h4><em>New York Times v. Microsoft &amp; OpenAI</em>, 777 F. Supp. 3d 283 (S.D.N.Y. Apr. 4, 2025) (Stein, J.)</h4>
+            <p>This ruling covers the consolidated NYT, Daily News and Center for Investigative Reporting suits. The court let the direct infringement claims proceed, including conduct more than three years old, under the discovery rule. It also kept the contributory infringement claims, finding plausible allegations that defendants knew users were reproducing articles, and kept the trademark dilution claims over false attributions. It dismissed with prejudice the common-law misappropriation claims as preempted and CIR's "abridgment" claims, since bullet-point summaries are not substantially similar to the articles. The DMCA § 1202 claims were mostly dismissed.</p>
+          </article>
+        </div></div>
+        <div class="sec" id="s10-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Contributory infringement</span><span class="dr">Requires knowledge of and material contribution to users' infringement.</span></th><td><ol class="lin"><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s10-r3"><em>NYT v. Microsoft &amp; OpenAI</em></a> <span class="yr">(Apr. 2025)</span><span class="ln">plausible that defendants knew users reproduced articles</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">DMCA § 1202(b)</span><span class="dr">Bars removing copyright management information knowing it will enable infringement.</span></th><td><ol class="lin"><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s10-r3"><em>NYT v. Microsoft &amp; OpenAI</em></a> <span class="yr">(Apr. 2025)</span><span class="ln">most CMI claims dismissed</span></span></li><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s10-r2"><em>Kadrey v. Meta</em></a> <span class="yr">(June 2025)</span><span class="ln">summary judgment for Meta in a separate ruling</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">State misappropriation</span><span class="dr">Hot news survives § 301 only in narrow form.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s10-r3"><em>NYT v. Microsoft &amp; OpenAI</em></a> <span class="yr">(Apr. 2025)</span><span class="ln">preempted; dismissed with prejudice</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Fair use of training copies</span><span class="dr">Training copies are judged under the four factors like any other use.</span></th><td><ol class="lin"><li><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="lt"><a href="#s10-r1"><em>Bartz v. Anthropic</em></a> <span class="yr">(June 2025)</span><span class="ln">training is "exceedingly transformative"</span></span></li><li><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="lt"><a href="#s10-r2"><em>Kadrey v. Meta</em></a> <span class="yr">(June 2025)</span><span class="ln">highly transformative; Meta wins on this record</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Each use judged separately</span><span class="dr">Training copies, format-shifted copies and stored library copies can come out differently.</span></th><td><ol class="lin"><li><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="lt"><a href="#s10-r1"><em>Bartz v. Anthropic</em></a> <span class="yr">(June 2025)</span><span class="ln">print-to-digital is fair; pirated central library is not</span></span></li><li><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="lt"><a href="#s10-r2"><em>Kadrey v. Meta</em></a> <span class="yr">(June 2025)</span><span class="ln">downloading from pirate sites is relevant but not decisive</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Market dilution (factor four)</span><span class="dr">Whether AI outputs that compete with human works, without copying them, count as market harm.</span></th><td><ol class="lin"><li><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lt"><a href="#s10-r1"><em>Bartz v. Anthropic</em></a> <span class="yr">(June 2025)</span><span class="ln">no different from teaching schoolchildren to write</span></span></li><li><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="lt"><a href="#s10-r2"><em>Kadrey v. Meta</em></a> <span class="yr">(June 2025)</span><span class="ln">dilution could defeat fair use; plaintiffs offered no evidence</span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> Also pleaded: trademark dilution (survived in the Daily News action). <em>Sony v. Universal</em> (1984).</p></div></div>
+        <div class="sec" id="s10-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s10-k1"><h4>Is training like learning?</h4><p>Judge Alsup compared training to a reader learning to write. Judge Chhabria called that analogy inapt, because no human reader can flood the market with competing works. How courts frame training largely decides factor one.</p></article>
+        <article class="idea" id="s10-k2"><h4>Does the source of the copies matter?</h4><p><em>Bartz</em> treated the pirated library as a separate use that was not fair. <em>Kadrey</em> treated downloading from pirate sites as relevant but not decisive. The difference affects damages exposure across the industry, as the $1.5 billion <em>Bartz</em> settlement showed.</p></article>
+        <article class="idea" id="s10-k3"><h4>Is market dilution cognizable?</h4><p>Judge Chhabria suggested AI outputs that compete with human works could weigh against fair use, even if no output copies any work. Critics say that protects style and ideas, which copyright does not cover. Supporters say it captures the real harm.</p></article>
+        <article class="idea" id="s10-k4"><h4>Memorization and regurgitation</h4><p>The <em>NYT</em> complaint shows ChatGPT reproducing articles nearly word for word. OpenAI says those outputs required unusual prompts. Whether such outputs are rare edge cases or proof of substitution drives the output-based claims.</p></article>
+        </div></div>
+        <div class="sec" id="s10-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Pamela Samuelson, "Generative AI Meets Copyright," 381 Science 158 (2023)</p><p class="fsum">A short overview in <em>Science</em> of the copyright questions raised by generative AI.</p><ul class="fkey"><li>Whether copying for training is fair use.</li><li>When outputs infringe the works they resemble.</li><li>Who, if anyone, owns AI-generated works.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s10-k1">Is training like learning?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Samuelson+Generative+AI+Meets+Copyright+Science" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Mark A. Lemley, "How Generative AI Turns Copyright Upside Down," 25 Colum. Sci. &amp; Tech. L. Rev. 190 (2024)</p><p class="fsum">Argues generative AI shifts copyright's center of gravity from expression to prompts and ideas.</p><ul class="fkey"><li>Human creativity moves into the prompt.</li><li>Substantial similarity tests strain when outputs are generated.</li><li>The idea/expression line becomes harder to draw.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s10-k3">Is market dilution cognizable?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Lemley+How+Generative+AI+Turns+Copyright+Upside+Down" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">A. Feder Cooper &amp; James Grimmelmann, "The Files Are in the Computer: Copyright, Memorization, and Generative AI," Chi.-Kent L. Rev. (2025)</p><p class="fsum">Explains how models memorize training data and argues that memorization means a model can contain copies of works.</p><ul class="fkey"><li>Memorized data is encoded in model weights.</li><li>A model can be a "copy" under copyright law.</li><li>That affects who is liable and for what.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s10-k4">Memorization and regurgitation</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Cooper+Grimmelmann+The+Files+Are+in+the+Computer+Copyright+Memorization+Generative+AI" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Katherine Lee, A. Feder Cooper &amp; James Grimmelmann, "Talkin' 'Bout AI Generation: Copyright and the Generative-AI Supply Chain" (working paper 2023)</p><p class="fsum">Maps the generative AI supply chain onto copyright questions.</p><ul class="fkey"><li>Breaks the process into stages, from creating works and datasets to training, deployment and generation.</li><li>Liability depends on the stage and the actor.</li><li>There is no single answer to whether generative AI infringes.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s10-k1">Is training like learning?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Lee+Cooper+Grimmelmann+Talkin%27+Bout+AI+Generation+Copyright+Generative-AI+Supply+Chain" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+
+      <!-- SESSION 11 -->
+      <section class="session" id="s11">
+        <p class="eyebrow">Session 11 · Unit IV</p>
+        <h2>Cases involving RAG and generative AI outputs</h2>
+        <div class="sec" id="s11-o"><h3><span class="sn">1</span> Overview</h3><p class="cq">Do AI answer engines that retrieve and summarize news infringe?</p><p>After training, the next battleground is retrieval-augmented generation (RAG). A RAG system copies current web content into an index, retrieves articles when a user asks a question, and writes an answer from them, often with few links back to the source. That makes AI "answer engines" direct substitutes for news sites. This session asks when RAG inputs and outputs infringe, how substantial similarity works for summaries of factual news, and what liability attaches to invented content falsely credited to publishers.</p></div>
+        <div class="sec" id="s11-rd"><h3><span class="sn">2</span> Readings</h3><div class="readings">
+          <article class="reading" id="s11-r1">
+            <h4><em>Dow Jones &amp; Co. and NYP Holdings v. Perplexity AI</em>, Second Amended Complaint, No. 24-cv-7984 (S.D.N.Y. filed Jan. 28, 2025)</h4>
+            <p>The publishers of the <em>Wall Street Journal</em> and <em>New York Post</em> allege that Perplexity's "answer engine," which invites users to "Skip the Links," is a substitute for their sites built on massive freeriding. Perplexity does not train its own model. Instead it crawls and scrapes publishers' pages, sometimes ignoring robots.txt, copies them into its RAG index, and feeds them into LLMs to generate answers. Those answers sometimes reproduce articles verbatim or near-verbatim, or closely paraphrase and summarize them. The complaint has four counts: (1) copyright infringement from copying works into the RAG index; (2) infringement through outputs; (3) false designation of origin under the Lanham Act; and (4) trademark dilution. The trademark counts rest on "hallucinations," meaning invented text and quotes falsely attributed to the <em>Journal</em> and the <em>Post</em>. The complaint says News Corp wrote to Perplexity in July 2024 offering to discuss licensing and got only an invitation to its revenue-sharing program. It seeks damages, an injunction and destruction of any RAG index containing the publishers' content.</p>
+            <span class="note">Scanned PDF; read via OCR through the complaint's 52 pages; appendices not reviewed</span>
+          </article>
+        </div></div>
+        <div class="sec" id="s11-d"><h3><span class="sn">3</span> Doctrines</h3><div class="dtable"><table class="doctrine-table lineage">
+          <colgroup><col class="l1"><col class="l2"></colgroup>
+          <thead><tr><th scope="col">Doctrine</th><th scope="col">How the readings develop it</th></tr></thead><tbody>
+          <tr><th scope="row"><span class="dn">Input copying into a RAG index</span><span class="dr">Copying works into a retrieval index may infringe whether or not any answer reproduces them.</span></th><td><ol class="lin"><li><span class="chip src" title="A claim made in a complaint, not yet decided.">Alleges</span><span class="lt"><a href="#s11-r1"><em>Dow Jones v. Perplexity</em> complaint</a> <span class="yr">(2025)</span><span class="ln">Count One: copying into the index is a completed infringement</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Output infringement</span><span class="dr">Answers infringe if substantially similar to a specific work.</span></th><td><ol class="lin"><li><span class="chip src" title="A claim made in a complaint, not yet decided.">Alleges</span><span class="lt"><a href="#s11-r1"><em>Dow Jones v. Perplexity</em> complaint</a> <span class="yr">(2025)</span><span class="ln">Count Two: verbatim and near-verbatim answers, close paraphrases</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Substitution and fair use</span><span class="dr">A use that replaces the original weighs against fair use.</span></th><td><ol class="lin"><li><span class="chip src" title="A claim made in a complaint, not yet decided.">Alleges</span><span class="lt"><a href="#s11-r1"><em>Dow Jones v. Perplexity</em> complaint</a> <span class="yr">(2025)</span><span class="ln">"Skip the Links" answers substitute for the publishers' sites</span></span></li></ol></td></tr>
+          <tr><th scope="row"><span class="dn">Lanham Act: false designation and dilution</span><span class="dr">Misattributing content to a mark can confuse consumers and dilute famous marks.</span></th><td><ol class="lin"><li><span class="chip src" title="A claim made in a complaint, not yet decided.">Alleges</span><span class="lt"><a href="#s11-r1"><em>Dow Jones v. Perplexity</em> complaint</a> <span class="yr">(2025)</span><span class="ln">Counts Three and Four: hallucinations attributed to the <em>Journal</em> and the <em>Post</em></span></span></li></ol></td></tr>
+          </tbody></table><p class="legend"><span class="lg">Court and agency rulings</span><span class="chip est" title="The court creates or first recognizes this rule.">Creates</span><span class="chip est" title="The court applies the rule to new ground.">Expands</span><span class="chip neu" title="The court or agency applies the rule as it stands.">Applies</span><span class="chip nar" title="The court keeps the rule but limits its reach.">Narrows</span><span class="chip rej" title="The court refuses the rule or leaves almost nothing of it.">Rejects</span><span class="lg">Articles, comments, complaints</span><span class="chip src" title="Outlined chips mark sources that argue or allege rather than decide.">Argues, Critiques, Proposes, Documents, Alleges</span></p><p class="bgauth"><span class="bgl">Background authority</span> <em>Nihon Keizai</em> (1999); <em>NYT v. Microsoft &amp; OpenAI</em> (2025, CIR abridgments); <em>Sega</em>, <em>Sony v. Connectix</em>, <em>Ross</em> and <em>Bartz</em> on intermediate copying; <em>Kadrey</em> on market dilution; <em>Dastar</em> (2003); <em>Walters v. OpenAI</em> (Ga. 2025).</p></div></div>
+        <div class="sec" id="s11-kd"><h3><span class="sn">4</span> Key debates</h3><div class="ideas">
+        <article class="idea" id="s11-k1"><h4>Is RAG more like search or like Meltwater?</h4><p>Perplexity says it surfaces facts and cites sources, like a search engine. Publishers say its answers replace the visit, which it advertises with "Skip the Links." Because RAG copies content when each question is asked rather than only during training, the substitution argument is stronger than in the training cases.</p></article>
+        <article class="idea" id="s11-k2"><h4>Can multi-source answers avoid infringement?</h4><p>An answer built from many articles may not be substantially similar to any one of them, even if together they replace the need to read any. That is the copyright gap Session 1 identified, and copyright law may not close it.</p></article>
+        <article class="idea" id="s11-k3"><h4>Is trademark law the right tool for hallucinations?</h4><p>Publishers use the Lanham Act against invented quotes attributed to them. <em>Dastar</em> limits false-designation claims about authorship, so dilution and confusion theories carry more weight. <em>Walters v. OpenAI</em> shows the limits of defamation law for the same harm.</p></article>
+        <article class="idea" id="s11-k4"><h4>Does ignoring robots.txt matter legally?</h4><p>Robots.txt is a voluntary standard, not a contract or an access barrier. Publishers frame scraping in violation of it as bad faith or unauthorized access. Others push technical and market fixes, such as pay-per-crawl systems and licensing.</p></article>
+        </div></div>
+        <div class="sec" id="s11-f"><h3><span class="sn">5</span> Further reading</h3><ul class="further">
+        <li><p class="cite">Pew Research Center, "Google Users Are Less Likely to Click on Links When an AI Summary Appears in the Results" (July 2025)</p><p class="fsum">A Pew analysis of users' browsing data found people click links less often when Google shows an AI summary.</p><ul class="fkey"><li>Users clicked a result in about 8% of visits with an AI summary, versus 15% without.</li><li>They clicked a source cited in the summary in about 1% of visits.</li><li>They were more likely to end their browsing session.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s11-k1">Is RAG more like search or like Meltwater?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Pew+Research+Google+users+less+likely+to+click+on+links+when+an+AI+summary+appears" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite"><em>Dastar Corp. v. Twentieth Century Fox Film Corp.</em>, 539 U.S. 23 (2003)</p><p class="fsum">The Supreme Court held that "origin of goods" in the Lanham Act means the producer of physical goods, not the author of the ideas in them.</p><ul class="fkey"><li>No Lanham Act claim for failing to credit the creator of a public-domain work.</li><li>Trademark law cannot be used to create a "mutant copyright."</li><li>Limits false-designation claims about authorship of content.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s11-k3">Is trademark law the right tool for hallucinations?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Dastar+Corp.+v.+Twentieth+Century+Fox+Film+Corp+539+U.S.+23" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Eugene Volokh, "Large Libel Models? Liability for AI Output," 3 J. Free Speech L. 489 (2023)</p><p class="fsum">Analyzes defamation liability for false statements generated by AI.</p><ul class="fkey"><li>Outputs presented as fact can be defamatory.</li><li>§ 230 likely does not apply to model-generated statements.</li><li>Developers may have a duty to block known falsehoods after notice.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s11-k3">Is trademark law the right tool for hallucinations?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Volokh+Large+Libel+Models+Liability+for+AI+Output" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Orin S. Kerr, "Norms of Computer Trespass," 116 Colum. L. Rev. 1143 (2016)</p><p class="fsum">Argues computer trespass law should rest on the norm that websites are open unless protected by authentication.</p><ul class="fkey"><li>The web is open to the public by default.</li><li>Bypassing a password or similar barrier is trespass.</li><li>Terms of use and similar signals should not create criminal liability.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s11-k4">Does ignoring robots.txt matter legally?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Kerr+Norms+of+Computer+Trespass" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        <li><p class="cite">Matthew Sag, "Copyright Safety for Generative AI," 61 Hous. L. Rev. 295 (2023)</p><p class="fsum">Proposes practices to reduce copyright risk in generative AI, focusing on memorization.</p><ul class="fkey"><li>Training is generally a non-expressive use.</li><li>The problem arises when models memorize and reproduce works.</li><li>Recommends safeguards such as deduplication and output filtering.</li></ul><p class="meta"><span class="rel">Key debate: <a href="#s11-k2">Can multi-source answers avoid infringement?</a></span><a class="ext" href="https://scholar.google.com/scholar?q=Sag+Copyright+Safety+for+Generative+AI" target="_blank" rel="noopener">Find on Google Scholar &#8599;</a></p></li>
+        </ul></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+
+  // Light/dark toggle: starts from the viewer's theme, remembers an explicit choice
+  var root = document.documentElement;
+  var sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+  function savedTheme() { try { return localStorage.getItem('reader-theme'); } catch (e) { return null; } }
+  function isDark() {
+    var t = root.getAttribute('data-theme');
+    return t ? t === 'dark' : sysDark.matches;
+  }
+  function paintTheme() {
+    var dark = isDark();
+    app.classList.toggle('is-dark', dark);
+    document.querySelectorAll('.theme-btn').forEach(function (b) {
+      var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+      b.setAttribute('aria-label', label); b.title = label;
+    });
+  }
+  var saved = savedTheme();
+  if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
+  paintTheme();
+  if (sysDark.addEventListener) sysDark.addEventListener('change', paintTheme);
+  document.querySelectorAll('.theme-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var next = isDark() ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('reader-theme', next); } catch (e) {}
+      paintTheme();
+    });
+  });
+  var side = document.getElementById('side');
+  var scrim = document.getElementById('scrim');
+  var openBtn = document.getElementById('openDrawer');
+  var closeBtn = document.getElementById('closeDrawer');
+  var collapseBtn = document.getElementById('collapseBtn');
+  var phone = window.matchMedia('(max-width: 860px)');
+
+  function store(key, val) { try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch (e) { return null; } }
+
+  // Desktop: collapse to numbered rail
+  function setCollapsed(on) {
+    app.classList.toggle('collapsed', on);
+    collapseBtn.setAttribute('aria-expanded', String(!on));
+    collapseBtn.setAttribute('aria-label', on ? 'Expand sidebar' : 'Collapse sidebar');
+    store('reader-collapsed', on ? '1' : '0');
+  }
+  if (store('reader-collapsed') === '1') setCollapsed(true);
+  collapseBtn.addEventListener('click', function () { setCollapsed(!app.classList.contains('collapsed')); });
+
+  // Phone: drawer
+  function setDrawer(on) {
+    app.classList.toggle('drawer-open', on);
+    scrim.hidden = !on;
+    openBtn.setAttribute('aria-expanded', String(on));
+    if (on) closeBtn.focus();
+  }
+  openBtn.addEventListener('click', function () { setDrawer(true); });
+  closeBtn.addEventListener('click', function () { setDrawer(false); openBtn.focus(); });
+  scrim.addEventListener('click', function () { setDrawer(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && app.classList.contains('drawer-open')) { setDrawer(false); openBtn.focus(); } });
+  side.addEventListener('click', function (e) { if (e.target.closest('a') && phone.matches) setDrawer(false); });
+
+  // Unit groups
+  document.querySelectorAll('.unit-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var list = document.getElementById(btn.getAttribute('aria-controls'));
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      list.hidden = open;
+    });
+  });
+
+  // One page per session, routed on the hash (#s1 ... #s11; #s1-r2 opens S1 at that reading)
+  var links = {};
+  document.querySelectorAll('.nav-link').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+  var current = null;
+  function activate(id) {
+    if (id === current) return;
+    if (current && links[current]) { links[current].classList.remove('active'); links[current].removeAttribute('aria-current'); links[current].parentElement.classList.remove('open'); }
+    current = id;
+    if (!links[id]) return;
+    var a = links[id];
+    a.classList.add('active'); a.setAttribute('aria-current', 'true');
+    a.parentElement.classList.add('open');
+    var unitList = a.closest('.unit-list');
+    if (unitList && unitList.hidden) {
+      unitList.hidden = false;
+      var t = document.querySelector('[aria-controls="' + unitList.id + '"]');
+      if (t) t.setAttribute('aria-expanded', 'true');
+    }
+    var r = a.getBoundingClientRect(), s = side.getBoundingClientRect();
+    if (r.top < s.top + 60 || r.bottom > s.bottom - 20) side.scrollTop += r.top - s.top - 120;
+  }
+  var home = document.getElementById('home');
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.session'));
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function info(sec) {
+    return { id: sec.id, num: sec.id.slice(1), title: sec.querySelector('h2').textContent, unit: sec.querySelector('.eyebrow').textContent.split('·')[1].trim(), readings: sec.querySelectorAll('.reading').length };
+  }
+  var meta = sections.map(info);
+
+  // Overview index, grouped by unit
+  var unitNames = {};
+  document.querySelectorAll('.unit-toggle').forEach(function (b) { var p = b.textContent.split('·'); unitNames[p[0].trim()] = p[1].trim(); });
+  var html = '', lastUnit = null;
+  meta.forEach(function (m) {
+    if (m.unit !== lastUnit) {
+      if (lastUnit) html += '</ul></section>';
+      html += '<section class="index-unit"><h2>' + esc(m.unit + ' · ' + (unitNames[m.unit] || '')) + '</h2><ul>';
+      lastUnit = m.unit;
+    }
+    html += '<li><a href="#' + m.id + '"><span class="n">S' + m.num + '</span><span class="t">' + esc(m.title) + '</span><span class="c">' + m.readings + (m.readings === 1 ? ' reading' : ' readings') + '</span></a></li>';
+  });
+  document.getElementById('index').innerHTML = html + '</ul></section>';
+
+  // Breadcrumb and previous/next links on each session page
+  sections.forEach(function (sec, i) {
+    sec.classList.add('view');
+    var crumb = document.createElement('p');
+    crumb.className = 'crumb';
+    crumb.innerHTML = '<a href="#overview">← All sessions</a>';
+    sec.insertBefore(crumb, sec.firstChild);
+    var pager = document.createElement('nav');
+    pager.className = 'pager';
+    pager.setAttribute('aria-label', 'Session pages');
+    var p = '';
+    if (i > 0) p += '<a class="prev" href="#' + meta[i - 1].id + '"><span class="dir">Previous · S' + meta[i - 1].num + '</span><span class="pt">' + esc(meta[i - 1].title) + '</span></a>';
+    if (i < meta.length - 1) p += '<a class="next" href="#' + meta[i + 1].id + '"><span class="dir">Next · S' + meta[i + 1].num + '</span><span class="pt">' + esc(meta[i + 1].title) + '</span></a>';
+    pager.innerHTML = p;
+    sec.appendChild(pager);
+  });
+
+  var baseTitle = document.title;
+  function route() {
+    var hash = decodeURIComponent(location.hash.slice(1));
+    var m = /^(s\d+)(-(?:r\d+|k\d+|f|o|rd|d|kd))?$/.exec(hash);
+    var sec = m && document.getElementById(m[1]);
+    var shown = sec || home;
+    home.hidden = shown !== home;
+    sections.forEach(function (s) { s.hidden = s !== shown; });
+    activate(sec ? sec.id : 'overview');
+    document.title = sec ? 'S' + sec.id.slice(1) + ' · ' + sec.querySelector('h2').textContent + ' · ' + baseTitle : baseTitle;
+    var target = m && m[2] ? document.getElementById(hash) : null;
+    if (target) target.scrollIntoView({ block: 'start' });
+    else window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script>
+
+</html>
